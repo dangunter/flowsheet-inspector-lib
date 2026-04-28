@@ -10,7 +10,9 @@ from pathlib import Path
 import pytest
 
 # package
+from ..runner import ReportDB
 from .demo_flowsheet_structured import FS
+from .demo_flowsheet_fi_main import main
 from ..common import ActionNames
 
 
@@ -29,6 +31,21 @@ def test_fs_run_steps(tmp_path):
     db = FS.get_report_db()
     assert Path(db._filename) == dbpath
 
+    _check_report_ok(db)
+
+
+@pytest.mark.integration
+def test_fi_main(tmp_path):
+    dbpath = tmp_path / "test_fs_run_steps.db"
+    main(dbfile=dbpath)
+
+    db = ReportDB(dbpath)
+    assert Path(db._filename) == dbpath
+
+    _check_report_ok(db)
+
+
+def _check_report_ok(db):
     rpt = db.get_last_report()
     assert rpt
     actions = rpt["actions"]
