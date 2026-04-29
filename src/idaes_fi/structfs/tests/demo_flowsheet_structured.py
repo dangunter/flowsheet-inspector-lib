@@ -5,7 +5,7 @@ Import functions from demo flowsheet and wrap them with the FlowsheetRunner
 from ..fsrunner import FlowsheetRunner, Steps
 from .demo_flowsheet import *
 
-FS = FlowsheetRunner(name="Demo Flowsheet", tags="test demo")
+FS = FlowsheetRunner(name="Demo Flowsheet", tags="test demo", module=__name__)
 
 
 @FS.step(Steps.build)

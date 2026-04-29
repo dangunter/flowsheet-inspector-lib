@@ -47,6 +47,7 @@ from .common import (
     load_module,
     Steps,
 )
+from .. import gitutil
 
 _log = logging.getLogger(__name__)
 
@@ -490,12 +491,7 @@ def run_flowsheet(
         ValueError, if no flowsheet is found, or no match to fs_attr
     """
     mod = load_module(module_or_path=module_or_path)
-    p = Path(mod.__file__)
-    target_kw = {
-        "module": mod.__name__,
-        "filename": p.name,
-        "filedir": str(p.parent.absolute()),
-    }
+    target_kw = _module_target(mod)
     obj_map = _find_global_flowsheet(mod)
     if obj_map:
         if fs_attr:
@@ -512,7 +508,6 @@ def run_flowsheet(
                     "specified; using first."
                 )
             fs = list(obj_map.values())[0]
-        p = Path(mod.__file__)
         fs.set_report_target(**target_kw)
         if step_kw is None:
             step_kw = {}
@@ -529,6 +524,21 @@ def run_flowsheet(
         model, results = func(**kwargs)
         fs = results[RESULT_FLOWSHEET_KEY]
     return fs
+
+
+def _module_target(mod):
+    p = Path(mod.__file__)
+
+    target_kw = {
+        "module": mod.__name__,
+        "filename": p.name,
+        "filedir": str(p.parent.absolute()),
+    }
+    repo_hash = gitutil.git_head_hash(p)
+    if repo_hash is not None:
+        target_kw["hash"] = repo_hash
+
+    return target_kw
 
 
 def _find_global_flowsheet(a_module) -> dict[str, BaseFlowsheetRunner]:

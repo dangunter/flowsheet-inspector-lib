@@ -16,6 +16,7 @@ Run functions in a module in a defined, named, sequence.
 
 # stdlib
 from abc import ABC, abstractmethod
+import importlib
 import logging
 from pathlib import Path
 import traceback
@@ -28,6 +29,7 @@ from pydantic import BaseModel
 from idaes.config import get_data_directory
 from .reportdb import ReportDB
 from .common import ActionNames
+from .. import gitutil
 
 __author__ = "Dan Gunter (LBNL)"
 
@@ -291,6 +293,34 @@ class Runner:
     ):
         names = (self.normalize_name(first), self.normalize_name(last))
 
+        # Try to complete the report target, from value of 'module'
+        tgt = self.get_report_target()
+        print(f"@@ old report target: {tgt}")
+        if "module" in tgt:
+            tgt_changed = False
+            try:
+                modname = tgt["module"]
+                mod = importlib.import_module(modname)
+            except ImportError as err:
+                print(f"@@ import failed: {err}")
+                _log.error(f"Cannot import module {modname}")
+                mod = None
+            print(f"@@ import ok, mod={mod}")
+            if mod:
+                if not tgt.get("filename", "") and not tgt.get("filedir", ""):
+                    p = Path(mod.__file__)
+                    tgt["filename"] = p.name
+                    tgt["filedir"] = str(p.parent.absolute())
+                    tgt_changed = True
+                if not tgt.get("hash", ""):
+                    repo_hash = gitutil.git_head_hash(p)
+                    if repo_hash is not None:
+                        tgt["hash"] = repo_hash
+                        tgt_changed = True
+            if tgt_changed:
+                self.set_report_target(**tgt)
+        print(f"@@ new report target: {tgt}")
+
         self._last_run_steps = []
 
         # get indexes of first/last step
@@ -387,6 +417,9 @@ class Runner:
         self._tags = target_kw.pop("tags", "")  # I'm gonna pop some tags..
         _log.debug(f"Set report target to: {target_kw}")
         self._report_db.set_target(**target_kw)
+
+    def get_report_target(self) -> dict:
+        return self._report_db.get_target()
 
     def reset(self):
         """Reset runner internal state, especially the context."""

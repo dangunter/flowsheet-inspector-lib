@@ -46,12 +46,12 @@ class ReportDB:
         ("module", "TEXT"),
         ("filedir", "TEXT"),
         ("filename", "TEXT"),
+        ("hash", "TEXT"),
     )
     COLUMNS = tuple(
         [
             ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
             ("created", "REAL"),
-            ("target_hash", "TEXT"),
             ("tags", "TEXT"),
             ("solver_status", "TEXT"),
             ("run_status", "BOOLEAN"),
@@ -124,7 +124,6 @@ class ReportDB:
         self,
         data: str | dict,
         tags: str = "",
-        hash_=None,
         run_status: bool = False,
         run_exc: str = "",
         solver_status: str = "NA",
@@ -136,8 +135,6 @@ class ReportDB:
             data: Report payload as a JSON string or dictionary.
             tags: Space-separated tags to store with the report. Tags are
                 normalized to lowercase and sorted before storage.
-            hash_: Optional hash for the report target. If omitted, an empty
-                string is stored.
             run_status: Overall run success flag to store with the report.
             run_exc: Overall run exception message, if it failed.
             solver_status: Solver status value to store with the report.
@@ -156,8 +153,6 @@ class ReportDB:
         with self._connect() as conn:
             # set non-user column values
             created = time.time()
-            if hash_ is None:
-                hash_ = ""
             insert_cols = self._all_columns(exclude=("id",))
             # sort tags so simple LIKE search can work
             tag_items = [t.lower() for t in tags.split()]
@@ -177,7 +172,6 @@ class ReportDB:
             # construct inserted values and placeholder
             colvalues = [
                 created,
-                hash_,
                 tags,
                 solver_status,
                 run_status,
