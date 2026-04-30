@@ -47,7 +47,7 @@ where = ["src"]
 idaes_fi = ["py.typed"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["src"]
 pythonpath = ["src"]
 markers = [
   "unit: marks tests as unit tests",
