@@ -48,6 +48,7 @@ class Steps:
     set_operating_conditions = "set_operating_conditions"
     set_scaling = "set_scaling"
     solve_initial = "solve_initial"
+    set_autoscaling = "set_autoscaling"
     add_costing = "add_costing"
     initialize_costing = "initialize_costing"
     setup_optimization = "setup_optimization"

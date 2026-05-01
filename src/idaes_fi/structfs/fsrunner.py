@@ -129,6 +129,7 @@ class BaseFlowsheetRunner(Runner):
         Steps.set_operating_conditions,
         Steps.set_scaling,
         Steps.solve_initial,
+        Steps.set_autoscaling,
         Steps.add_costing,
         Steps.initialize_costing,
         Steps.setup_optimization,
@@ -586,8 +587,9 @@ def _find_wrapped_main(a_module) -> FunctionType | None:
     return None
 
 
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
+def main(args=None):
+    """Run a flowsheet from the command-line"""
+    ap = argparse.ArgumentParser(description=main.__doc__)
     ap.add_argument("name")
     ap.add_argument("--attr", default=None)
     ap.add_argument("--last", default=None)
@@ -598,7 +600,7 @@ if __name__ == "__main__":
         default=False,
         help="Don't print extra info",
     )
-    args = ap.parse_args()
+    args = ap.parse_args(args=args)
 
     kwargs = {}
     if args.attr is not None:
@@ -628,3 +630,7 @@ if __name__ == "__main__":
             print(o)
 
     sys.exit(0)
+
+
+if __name__ == "__main__":
+    main()

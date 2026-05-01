@@ -33,12 +33,17 @@ dependencies = [
 dev = [
   "mypy>=1.10",
   "mystmd>=1.8.3",
+  "jupyter-book>=2.0.0",
   "pytest>=8",
   "black>=26",
 ]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+
+[project.scripts]
+fi-copy = "idaes_fi.scripts.copy_template:main"
+fi-run = "idaes_fi.structfs.fsrunner:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
