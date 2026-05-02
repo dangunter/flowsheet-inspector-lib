@@ -1,6 +1,16 @@
 ---
 title: Flowsheet Inspector Library Documentation
 ---
+```{toctree}
+:maxdepth: 2
+:hidden:
+
+usage
+usage_nb
+api
+reference
+```
+
 # Flowsheet Inspector Library Documentation
 
 This site contains documentation for `idaes-fi`, the Python package that
