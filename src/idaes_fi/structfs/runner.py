@@ -84,9 +84,18 @@ class Runner:
         self._step_names = list(steps)
         self._steps: dict[str, Step] = {}
         self._failed = False
+        self._actions_failed = {}
         self.reset()
         self._tags = ""  # for reporting
         self._report_db = report_db or self.get_default_report_db(create=True)
+
+    @property
+    def failed(self) -> bool:
+        return bool(self._failed)
+
+    @property
+    def failed_actions(self) -> dict[str, str]:
+        return self._actions_failed.copy()
 
     def get_report_db(self) -> ReportDB:
         """Get current report database.
@@ -364,34 +373,58 @@ class Runner:
                 "Steps out of order: {names[0]}={step_range[0]} > {names[1]}={step_range[1]}"
             )
 
-        # execute overall before-run action
-        for action in self._actions.values():
-            action.before_run()
-
-        # run each (defined) step
+        # Start with success, my friend
         self._failed = False
-        for i in range(step_range[0], step_range[1] + 1):
-            # check whether to skip endpoints in range
-            if (i == step_range[0] and not endpoints[0]) or (
-                i == step_range[1] and not endpoints[1]
-            ):
-                continue
-            # get the step associated with the index
-            step = self._steps.get(self._step_names[i], None)
-            # if the step is defined, run it
-            if step:
-                step.func(self._context)
-                self._last_run_steps.append(step.name)
-            if self._failed:
-                _log.error(f"Step failed: {self._failed[0]}")
-                break  # stop
+
+        # execute overall before-run action
+        for action_name, action in self._actions.items():
+            try:
+                action.before_run()
+            except Exception as err:
+                _log.error(
+                    f"{action_name} failed in 'before_run' (no other actions will be run)"
+                )
+                where = action_name + ".after_run"
+                self._failed = where
+                self._actions_failed[where] = err
+                break  # one failure => all failure
+
+        # run each (defined) step (if before did not fail)
+        if self._failed:
+            _log.error("Failures occurred in actions before run, skipping all steps")
+        else:
+            for i in range(step_range[0], step_range[1] + 1):
+                # check whether to skip endpoints in range
+                if (i == step_range[0] and not endpoints[0]) or (
+                    i == step_range[1] and not endpoints[1]
+                ):
+                    continue
+                # get the step associated with the index
+                step = self._steps.get(self._step_names[i], None)
+                # if the step is defined, run it
+                if step:
+                    step.func(self._context)
+                    self._last_run_steps.append(step.name)
+                if self._failed:
+                    _log.error(f"Step failed: {self._failed[0]}")
+                    break  # stop
 
         # execute overall after-run action
         if self._failed:
             _log.error("Run failed")
         else:
             for action in self._actions.values():
-                action.after_run()
+                try:
+                    action.after_run()
+                except Exception as err:
+                    _log.error(f"{action_name} failed in 'after_run'")
+                    if self._failed:
+                        _log.error("Multiple failures: only first will be reported")
+                    else:
+                        where = action_name + ".after_run"
+                        self._failed = where
+                        self._actions_failed[where] = err
+                    continue  # allow all after_run actions, only record first failure
 
     def _save_report(self):
         rpt = self.report()
@@ -445,6 +478,7 @@ class Runner:
         self._context = {}
         self._last_run_steps = []
         self._failed = False
+        self._actions_failed = {}
 
     def list_steps(self, all_steps=False) -> list[str]:
         """Get list of [runnable] steps."""

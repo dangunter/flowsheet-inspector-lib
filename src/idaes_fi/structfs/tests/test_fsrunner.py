@@ -196,11 +196,12 @@ def test_base_flowsheet_runner_set_solve_steps():
     assert not hasattr(other, "solve_steps")
 
 
-def test_base_flowsheet_runner_run_steps():
+@pytest.mark.parametrize("runnerclass", [BaseFlowsheetRunner, FlowsheetRunner])
+def test_flowsheet_runner_run_steps(runnerclass):
     calls = []
     solver = SimpleNamespace(options={})
     s_build, s_init, s_solve = Steps.build, Steps.initialize, Steps.solve_initial
-    runner = BaseFlowsheetRunner(
+    runner = runnerclass(
         solver=solver,
         tee=False,
         steps=(s_build, s_init, s_solve),
@@ -224,7 +225,13 @@ def test_base_flowsheet_runner_run_steps():
     def solve_initial(ctx):
         calls.append(s_solve)
 
+    def extra_checks(runner):
+        if runnerclass is FlowsheetRunner:
+            assert runner.failed
+            assert "stream_table.after_run" in runner.failed_actions
+
     runner.run_steps(save_report=False)
+    extra_checks(runner)
 
     initial_model = runner.model
     assert calls == [s_build, s_init, s_solve]
@@ -232,12 +239,14 @@ def test_base_flowsheet_runner_run_steps():
 
     calls.clear()
     runner.run_steps(first=s_init, last=s_solve, save_report=False)
+    extra_checks(runner)
 
     assert calls == [s_init, s_solve]
     assert runner.model is initial_model
 
     calls.clear()
     runner.run_steps(first=s_build, last=s_build, save_report=False)
+    extra_checks(runner)
 
     rebuilt_model = runner.model
     assert calls == [s_build]

@@ -308,76 +308,6 @@ class DiagnosticReportType(Enum):
 class FlowsheetRunner(BaseFlowsheetRunner):
     """Interface for running and inspecting IDAES flowsheets."""
 
-    class DegreesOfFreedom:
-        """Wrapper for the UnitDofChecker action"""
-
-        def __init__(self, runner):
-            """Create the degrees-of-freedom helper.
-
-            Args:
-                runner: Flowsheet runner that owns the underlying action.
-            """
-            from .runner_actions import UnitDofChecker  # pylint: disable=C0415
-
-            # check DoF after build, initial solve, and optimization solve
-            self._a = runner.add_action(
-                "degrees_of_freedom",
-                UnitDofChecker,
-                "fs",
-                ["build", "solve_initial", "solve_optimization"],
-            )
-            self._rnr = runner
-
-        def model(self):
-            """Get the model."""
-            return self._a.get_dof_model()
-
-        def __getattr__(self, name):
-            """Naming the step prints a summary of that step."""
-            if name not in set(self._rnr.list_steps()):
-                raise AttributeError(f"No step named '{name}'")
-            self._a.summary(step=name)
-
-        def __str__(self):
-            return self._a.summary(stream=None)
-
-        def _ipython_display_(self):
-            self._a.summary()
-
-    class Timings:
-        """Wrapper for the Timer action"""
-
-        def __init__(self, runner):
-            """Create the timings helper.
-
-            Args:
-                runner: Flowsheet runner that owns the underlying action.
-            """
-            from .runner_actions import Timer  # pylint: disable=C0415
-
-            self._a: Timer = runner.add_action("timings", Timer)
-
-        @property
-        def values(self) -> list[dict]:
-            """Get timing values."""
-            return self._a.get_history()
-
-        @property
-        def history(self) -> str:
-            """Get a text report of the timing history"""
-            h = []
-            for i in range(len(self._a)):
-                h.append(f"== Run {i + 1} ==")
-                h.append("")
-                h.append(self._a.summary(run_idx=i))
-            return "\n".join(h)
-
-        def __str__(self):
-            return self._a.summary()
-
-        def _ipython_display_(self):
-            self._a._ipython_display_()  # pylint: disable=protected-access
-
     def __init__(self, solve_steps: list[str] = None, **kwargs):
         """Initialize a flowsheet runner with default inspection actions.
 
@@ -387,17 +317,24 @@ class FlowsheetRunner(BaseFlowsheetRunner):
                 `BaseFlowsheetRunner`.
         """
         from .runner_actions import (  # pylint: disable=C0415
+            Timer,
             CaptureSolverOutput,
             GetSolverResults,
             ModelVariables,
             MermaidDiagram,
             Diagnostics,
             StreamTable,
+            UnitDofChecker,
         )
 
         super().__init__(**kwargs)
-        self.dof = self.DegreesOfFreedom(self)
-        self.timings = self.Timings(self)
+        self.add_action(ActionNames.TIMINGS.value, Timer)
+        self.add_action(
+            ActionNames.DOF.value,
+            UnitDofChecker,
+            "fs",
+            [Steps.build, Steps.solve_initial, Steps.solve_optimization],
+        )
         self.add_action(ActionNames.SOLVER_OUTPUT.value, CaptureSolverOutput)
         self.add_action(ActionNames.SOLVER_RESULTS.value, GetSolverResults)
         self.add_action(ActionNames.DIAGNOSTICS.value, Diagnostics)
