@@ -130,6 +130,7 @@ class Runner:
                 raise ValueError("Either a `db` or `dbfile` argument is required")
             # get a ReportDB instance, creating DB if necessary and allowed
             do_create = False
+            dbfile = Path(dbfile)
             if not dbfile.exists():
                 if create:
                     do_create = True

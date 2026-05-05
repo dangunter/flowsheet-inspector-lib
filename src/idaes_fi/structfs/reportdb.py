@@ -61,12 +61,17 @@ class ReportDB:
         + list(TARGET_COLUMNS)
     )
 
-    def __init__(self, filename, **target_kw):
+    def __init__(self, filename: str, **target_kw):
         self._filename = filename
         self._tgtcol = [name for name, type_ in self.TARGET_COLUMNS]
         self._tgtval = {k: "" for k in self._tgtcol}
         if target_kw:
             self.set_target(**target_kw)
+
+    @property
+    def filename(self) -> str:
+        """Get current report filename."""
+        return self._filename
 
     def set_target(self, **kw):
         """Set default target metadata for future queries and inserts.

@@ -376,7 +376,11 @@ class FlowsheetRunner(BaseFlowsheetRunner):
 
 
 def run_flowsheet(
-    module_or_path: str, fs_attr: str = "", step_kw: dict[str, str] = None, **kwargs
+    module_or_path: str,
+    fs_attr: str = "",
+    step_kw: dict[str, str] = None,
+    report_db_file: str = None,
+    **kwargs,
 ) -> BaseFlowsheetRunner:
     """Run structfs-wrapper flowsheet found in a file or module.
 
@@ -385,6 +389,7 @@ def run_flowsheet(
         fs_attr: Used to select among multiple flowsheet wrappers in the same module.
                  If not given use the first one found, otherwise require a match.
         step_kw: Keywords sent to the `run_steps()` function, if applicable
+        report_db_file: If given, set the report DB to this file
         kwargs: Additional keyword arguments passed to fi_main, if applicable
 
     Returns:
@@ -414,6 +419,8 @@ def run_flowsheet(
         fs.set_report_target(**target_kw)
         if step_kw is None:
             step_kw = {}
+        if report_db_file is not None:
+            fs.set_report_db(dbfile=report_db_file)
         fs.run_steps(**step_kw)
     else:
         func = _find_wrapped_main(mod)
@@ -491,8 +498,18 @@ def _find_wrapped_main(a_module) -> FunctionType | None:
 
 def main(args=None):
     """Run a flowsheet from the command-line."""
+    try:
+        default_report_file = Runner.get_default_report_db().filename
+    except ValueError:
+        default_report_file = "?unknown?"
     ap = argparse.ArgumentParser(description=main.__doc__)
     ap.add_argument("name", help="Flowsheet file name or module name")
+    ap.add_argument(
+        "--db",
+        "-D",
+        help=f"Alternate SQLite database file for results (default=~{default_report_file})",
+        default=None,
+    )
     ap.add_argument(
         "--attr",
         default=None,
@@ -544,8 +561,13 @@ def main(args=None):
     if args.last is not None:
         kwargs["step_kw"] = {"last": args.last, "closest_step": True}
 
+    if args.db is not None:
+        log.info(f"Writing report to user-specified file: {args.db}")
+    else:
+        log.debug(f"Writing report to default file: {default_report_file}")
+
     try:
-        fs = run_flowsheet(args.name, **kwargs)
+        fs = run_flowsheet(args.name, report_db_file=args.db, **kwargs)
     except ValueError as err:
         print(f"ERROR: {str(err)}")
         return 1
