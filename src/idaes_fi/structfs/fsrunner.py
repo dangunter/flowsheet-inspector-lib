@@ -569,8 +569,11 @@ def main(args=None):
     try:
         fs = run_flowsheet(args.name, report_db_file=args.db, **kwargs)
     except ValueError as err:
-        print(f"ERROR: {str(err)}")
+        print(f"ERROR: {err}")
         return 1
+    except ModuleNotFoundError as err:
+        print(f"ERROR loading flowsheet module: {err}")
+        return 2
 
     # unless the user requests, print solver output
     # (that we captured to the DB)
@@ -587,8 +590,8 @@ def main(args=None):
             print(f"\n{div}\n| {s} |\n{div}\n")
             print(o)
 
-    sys.exit(0)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -85,17 +85,29 @@ def load_module(module_or_path: str | Path):
     Returns:
         module: The loaded Python module object.
 
+    Raises:
+        TypeError: not a string or Path
+
+
     Note:
         For file paths, this function sets up a pseudo-package structure to
         support relative imports (e.g., 'from ..sibling import something').
     """
     # Check if input is a file path
-    if (
-        isinstance(module_or_path, Path)
-        or module_or_path.endswith(".py")
-        or os.path.isfile(module_or_path)
-    ):
-        # This is a file path
+    file_path, module_name = None, None
+    if isinstance(module_or_path, Path):
+        file_path = module_or_path
+    elif isinstance(module_or_path, str):
+        if module_or_path.endswith(".py") or os.path.isfile(module_or_path):
+            file_path = Path(module_or_path)
+        elif module_or_path.startswith("."):
+            raise ValueError("Relative module names not allowed!")
+        else:
+            module_name = module_or_path
+    else:
+        raise TypeError("Input must be a string or Path")
+
+    if file_path is not None:
         file_path = Path(module_or_path).absolute()
         # file_path = os.path.abspath(module_or_path)
 
@@ -137,8 +149,7 @@ def load_module(module_or_path: str | Path):
         # Execute the module code (this actually loads the content)
         spec.loader.exec_module(module)
         return module
+    elif module_name is not None:
+        return importlib.import_module(module_name)
     else:
-        if module_or_path.startswith("."):
-            raise ValueError("Relative module names not allowed!!")
-        # This is a module name, use the original logic
-        return importlib.import_module(module_or_path)
+        raise RuntimeError("Logic error")  # should not get here

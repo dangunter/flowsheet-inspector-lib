@@ -347,6 +347,10 @@ class Runner:
         self._last_run_steps = []
 
         # get indexes of first/last step
+        _log.warning(
+            f"get indexes of first step '{names[0]}' and last step '{names[1]}' "
+            f"in steps {self._step_names}"
+        )
         step_range = [-1, -1]
         for i, step_name in enumerate(names):
             if step_name == self.STEP_ANY:  # meaning first or last defined
