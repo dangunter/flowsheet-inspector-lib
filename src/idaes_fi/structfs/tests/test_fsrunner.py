@@ -290,12 +290,9 @@ def empty_fsrunner():
 
 @pytest.fixture
 def empty_fsrunner_build_only():
-    s_build, s_init, s_solve = Steps.build
-    runner = FlowsheetRunner(
-        steps=(s_build,),
-    )
+    runner = FlowsheetRunner(steps=(Steps.build,))
 
-    @runner.step(s_build)
+    @runner.step(Steps.build)
     def build(ctx):
         ctx.model = ConcreteModel()
 
@@ -316,6 +313,7 @@ def test_set_solver_baseflowsheetrunner_init(solver_name, solver_opts):
     runner.run_steps()
 
 
-def test_set_solver_baseflowsheetrunner(empty_fsrunner_build_only):
+def test_no_solver_baseflowsheetrunner(empty_fsrunner_build_only):
     runner = empty_fsrunner_build_only
+
     runner.run_steps()

@@ -654,6 +654,9 @@ class Runner:
         return {"actions": action_reports, "last_run": self._last_run_steps.copy()}
 
 
+import sys
+
+
 class Action(ABC):
     """The Action class implements a simple framework to run arbitrary
     functions before and/or after each step and/or run performed
@@ -669,9 +672,23 @@ class Action(ABC):
         """
         self._runner = runner
         if log is None:
-            log = _log
+            log = self._get_logger()
         self.log = log
         self._dbg = self.log.isEnabledFor(logging.DEBUG)
+
+    def _get_logger(self):
+        name = f"{__name__}.{self.__class__.__name__}"
+        action_log = logging.root.manager.loggerDict.get(name, None)
+        if action_log is None:
+            action_log = logging.getLogger(name)
+            handler = logging.StreamHandler()
+            handler.setFormatter(
+                logging.Formatter(
+                    "[%(levelname)s] %(asctime)s Action %(name)s (%(funcName)s): %(message)s"
+                )
+            )
+            action_log.addHandler(handler)
+        return action_log
 
     def before_step(self, step_name: str):
         """Perform this action before the named step.

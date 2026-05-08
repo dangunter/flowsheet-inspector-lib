@@ -289,7 +289,13 @@ class UnitDofChecker(Action):
             self.log.debug(f"Do not check DoF for step: {step_name}")
             return
 
-        fs = self._get_flowsheet()
+        try:
+            fs = self._get_flowsheet()
+        except AttributeError:
+            self.log.error(
+                f"Could not access flowsheet: attribute '{self._fs}' not found."
+            )
+            return
 
         model_dof = degrees_of_freedom(self._get_flowsheet())
         units_dof = {self._fs: model_dof}
