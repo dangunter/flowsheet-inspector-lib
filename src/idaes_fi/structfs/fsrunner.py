@@ -19,7 +19,6 @@ in `FlowsheetRunner`.
 import argparse
 from copy import deepcopy
 from enum import Enum
-import inspect
 import logging
 from pathlib import Path
 import sys
@@ -45,6 +44,7 @@ from .common import (
     DEFAULT_SOLVER_NAME,
     RESULT_FLOWSHEET_KEY,
     load_module,
+    find_flowsheet_objects,
     Steps,
 )
 from .. import gitutil
@@ -400,7 +400,7 @@ def run_flowsheet(
     """
     mod = load_module(module_or_path=module_or_path)
     target_kw = _module_target(mod)
-    obj_map = _find_global_flowsheet(mod)
+    obj_map = find_flowsheet_objects(mod)
     if obj_map:
         if fs_attr:
             if fs_attr not in obj_map:
@@ -449,27 +449,6 @@ def _module_target(mod):
         target_kw["hash"] = repo_hash
 
     return target_kw
-
-
-def _find_global_flowsheet(a_module) -> dict[str, BaseFlowsheetRunner]:
-    """Find a global flowsheet object.
-    This is defined as the first object that is an instance of BaseFlowsheetRunner.
-
-    Return:
-        Dict mapping attribute name(s) to flowsheet object(s), or empty dict if none found
-    """
-    obj_map = {}
-    for key in dir(a_module):
-        obj = getattr(a_module, key)
-        # for reasons I will never understand, a simple isinstance()
-        # is not reliable; anyways, duck-typing this is probably better
-        if (
-            not inspect.isclass(obj)
-            and hasattr(obj, "run_steps")
-            and hasattr(obj, "model")
-        ):
-            obj_map[key] = obj
-    return obj_map
 
 
 def _find_wrapped_main(a_module) -> FunctionType | None:

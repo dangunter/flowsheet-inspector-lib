@@ -18,10 +18,12 @@ import argparse
 from collections import OrderedDict
 from enum import Enum
 import importlib
+import inspect
 import json
 from pathlib import Path
 import os
 import sys
+import traceback
 
 DEFAULT_SOLVER_NAME = "ipopt"
 
@@ -89,7 +91,8 @@ def load_module(module_or_path: str | Path):
 
     Raises:
         TypeError: not a string or Path
-
+        ValueError: Relative module name
+        FileNotFoundError: Could not find module file
 
     Note:
         For file paths, this function sets up a pseudo-package structure to
@@ -155,21 +158,115 @@ def load_module(module_or_path: str | Path):
         raise RuntimeError("Logic error")  # should not get here
 
 
+def find_flowsheet_objects(a_module) -> dict[str, object]:
+    """Find flowsheet objects in the module.
+
+    Args:
+      a_module: Module in which to look
+
+    Returns:
+        Dict mapping attribute name(s) to flowsheet object(s), or an
+        empty dict if none found
+    """
+    obj_map = {}
+    for key in dir(a_module):
+        obj = getattr(a_module, key)
+        # identify it with duck-typing
+        if (
+            not inspect.isclass(obj)
+            and hasattr(obj, "run_steps")
+            and hasattr(obj, "model")
+        ):
+            obj_map[key] = obj
+    return obj_map
+
+
+class FlowsheetLoadError(Exception):
+    """Raised if a flowsheet is not found."""
+
+
+def _get_steps_for_flowsheet(fs: str, fs_attr: str | None) -> list[str]:
+    # Load the module with the flowsheet
+    try:
+        module = load_module(fs)
+    except (ValueError, FileNotFoundError, ModuleNotFoundError) as err:
+        raise FlowsheetLoadError(f"Could not load flowsheet: {err}")
+    except Exception as err:
+        div = "-" * 40
+        raise FlowsheetLoadError(
+            f"Error while loading module: {err}\n{div}\n{traceback.format_exc()}{div}"
+        )
+
+    # Get mapping of all flowsheet objects in module
+    objs = find_flowsheet_objects(module)
+    if not objs:
+        raise FlowsheetLoadError(f"No structured flowsheets found in module '{fs}'")
+
+    # Get one flowsheet object in the module
+    fs_obj = None
+    if len(objs) == 1:
+        fs_obj = list(objs.values())[0]
+    elif fs_attr is None:
+        names = ", ".join(list(objs.keys()))
+        raise FlowsheetLoadError(
+            f"Multiple flowsheets found, use --attr option "
+            f"to select which one to show: {names}"
+        )
+    else:
+        if fs_attr not in objs:
+            raise FlowsheetLoadError(
+                f"Flowsheet object '{fs_attr}' not found in flowsheet module '{fs}'"
+            )
+        fs_obj = objs[fs_attr]
+
+    return fs_obj.get_defined_steps()
+
+
 def main(*cmdline):
     parser = argparse.ArgumentParser(
-        description="List standard structured flowsheet steps"
+        description="List (standard) structured flowsheet steps"
     )
     parser.add_argument(
-        "-F", "--format", help="Output format", choices=["json", "text"], default="json"
+        "--fs",
+        metavar="FLOWSHEET",
+        help="Show steps implemented in FLOWSHEET, which is a "
+        "module or file, instead of all standard steps",
+        default=None,
     )
-    args = parser.parse_args(*cmdline)
+    parser.add_argument(
+        "--attr",
+        default=None,
+        help="Name of attribute in file/module "
+        "containing structured flowsheet (e.g., 'FS'). "
+        "This is ignored without '--fs' option, "
+        "and only needed if there is more than one",
+    )
+    parser.add_argument(
+        "-t", "--format", help="Output format", choices=["json", "text"], default="json"
+    )
+    args = parser.parse_args(cmdline)
 
-    if args.format == "json":
-        json.dump(Steps.index, sys.stdout)
+    steps_list = None
+    if args.fs is None:
+        steps_list = Steps.index
     else:
-        for name in Steps.index:
-            print(name)
-    return 0
+        flowsheet = args.fs.strip()
+        try:
+            steps_list = _get_steps_for_flowsheet(args.fs, args.attr)
+        except FlowsheetLoadError as err:
+            print(f"Error loading flowsheet '{flowsheet}':\n  {err}")
+
+    if steps_list is None:
+        retcode = 1  # Not OK
+    else:
+        retcode = 0  # OK
+        if args.format == "json":
+            json.dump(steps_list, sys.stdout)
+        else:
+            for name in steps_list:
+                print(name)
+
+    return retcode
 
 
 if __name__ == "__main__":

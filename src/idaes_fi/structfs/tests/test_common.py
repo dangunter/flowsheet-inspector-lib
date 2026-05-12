@@ -57,3 +57,111 @@ def test_load_module():
     # break up so we can tell where failed
     assert mod1.MARKER == mod2.MARKER
     assert mod2.MARKER == mod3.MARKER
+
+
+# Test the list-steps functionality of common.main()
+
+TEST_DIR = Path(__file__).parent
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "args,ok",
+    [
+        # default steps
+        ([], True),
+        # one flowsheet
+        (
+            [
+                "--fs",
+                # cwd is source directory
+                str(TEST_DIR / "demo_flowsheet_structured.py"),
+            ],
+            True,
+        ),
+        # one flowsheet (2)
+        (
+            [
+                "--fs",
+                # cwd is source directory
+                "idaes_fi.structfs.tests.demo_flowsheet_structured",
+            ],
+            True,
+        ),
+        # multiple flowsheets
+        (
+            [
+                "--fs",
+                str(TEST_DIR / "demo_flowsheet_structured_multi.py"),
+                "--attr",
+                "FS",
+            ],
+            True,
+        ),
+        (
+            [
+                "--fs",
+                "idaes_fi.structfs.tests.demo_flowsheet_structured_multi",
+                "--attr",
+                "FS",
+            ],
+            True,
+        ),
+        # multiple flowsheets, bad attr
+        (
+            [
+                "--fs",
+                "idaes_fi.structfs.tests.demo_flowsheet_structured_multi",
+                "--attr",
+                "NO",
+            ],
+            False,
+        ),
+        # multiple flowsheets, need attr
+        (
+            [
+                "--fs",
+                str(TEST_DIR / "demo_flowsheet_structured_multi.py"),
+            ],
+            False,
+        ),
+        # no flowsheet in module
+        (
+            [
+                "--fs",
+                str(TEST_DIR / "test_common.py"),
+            ],
+            False,
+        ),
+        # no flowsheet in module (2)
+        (
+            [
+                "--fs",
+                "idaes_fi.structfs.tests.test_common",
+            ],
+            False,
+        ),
+        # bad file
+        (["--fs", "/B/A/D/F/I/L/E.xxx"], False),
+        # error in file
+        (["--fs", "%"], False),
+        # not even a file
+        (["--fs", "%.py"], False),
+    ],
+)
+def test_run_main(args, ok, subtests, tmp_path):
+    print(f"file={__file__}")
+    for fmt in ("text", "json", ""):
+        with subtests.test(fmt):
+            if fmt:
+                args = args + ["-t", fmt]
+            for i, a in enumerate(args):
+                if a == "%":
+                    f = tmp_path / "bad.py"
+                    f.open("w").write("print(1 / 0)\n")
+                    args[i] = str(f)
+            retcode = common.main(*args)
+            if ok:
+                assert retcode == 0
+            else:
+                assert retcode != 0

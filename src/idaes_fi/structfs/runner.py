@@ -96,6 +96,10 @@ class Runner:
     def failed_actions(self) -> dict[str, str]:
         return self._actions_failed.copy()
 
+    def get_defined_steps(self) -> list[str]:
+        """Get list of defined step (names)."""
+        return [name for name in self._step_names if self._steps.get(name, None)]
+
     def get_report_db(self) -> ReportDB:
         """Get current report database.
 
