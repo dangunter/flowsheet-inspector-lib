@@ -15,37 +15,48 @@
 # publicly and display publicly, and to permit other to do so.
 #
 #################################################################################
-"""
-Utility functions for logging
-"""
 
-import logging
-import warnings
+"""Runner action implementations."""
 
-g_quiet = {}
+from importlib import import_module
+
+__all__ = [
+    "CaptureSolverOutput",
+    "Diagnostics",
+    "GetSolverResults",
+    "MermaidDiagram",
+    "ModelVariables",
+    "SolverActionBase",
+    "SolverResult",
+    "StreamTable",
+    "Timer",
+    "UnitDofChecker",
+    "UnitDofType",
+]
+
+_EXPORT_MODULES = {
+    "CaptureSolverOutput": "solver",
+    "Diagnostics": "solver",
+    "GetSolverResults": "solver",
+    "MermaidDiagram": "mermaid_diagram",
+    "ModelVariables": "model_variables",
+    "SolverActionBase": "solver",
+    "SolverResult": "solver",
+    "StreamTable": "stream_table",
+    "Timer": "timer",
+    "UnitDofChecker": "unit_dof_checker",
+    "UnitDofType": "unit_dof_checker",
+}
 
 
-def quiet(roots=("idaes", "pyomo"), level=logging.CRITICAL):
-    """Be very quiet. I'm hunting wabbits.
-
-    Ignore warnings and set all loggers starting with one of
-    the values in 'roots' to the given level (default=CRITICAL).
-    """
-    warnings.filterwarnings("ignore")
-    all_loggers = [logging.getLogger()] + [
-        logging.getLogger(name) for name in logging.root.manager.loggerDict
-    ]
-    for lg in all_loggers:
-        for root in roots:
-            if lg.name.startswith(root + "."):
-                g_quiet[lg.name] = lg.level
-                lg.setLevel(level)
-
-
-def unquiet():
-    """Reverse previous quiet()"""
-    for k in list(g_quiet.keys()):
-        v = g_quiet[k]
-        lg = logging.getLogger(k)
-        lg.setLevel(v)
-        del g_quiet[k]
+# Lazy-load allows you to not install dependencies
+# for actions that you never import and use
+def __getattr__(name):
+    try:
+        module_name = _EXPORT_MODULES[name]
+    except KeyError as err:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from err
+    module = import_module(f".{module_name}", __name__)
+    value = getattr(module, name)
+    globals()[name] = value
+    return value

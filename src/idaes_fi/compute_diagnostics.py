@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 #################################################################################
-# The Institute for the Design of Advanced Energy Systems Integrated Platform
-# Framework (IDAES IP) was produced under the DOE Institute for the
-# Design of Advanced Energy Systems (IDAES).
+# Process Optimization and Modeling for Minerals Sustainability (PrOMMiS) Copyright (c) 2023-2026
 #
-# Copyright (c) 2018-2026 by the software owners: The Regents of the
-# University of California, through Lawrence Berkeley National Laboratory,
-# National Technology & Engineering Solutions of Sandia, LLC, Carnegie Mellon
-# University, West Virginia University Research Corporation, et al.
-# All rights reserved.  Please see the files COPYRIGHT.md and LICENSE.md
-# for full copyright and license information.
+# “Process Optimization and Modeling for Minerals Sustainability (PrOMMiS)” was produced under the DOE
+# Process Optimization and Modeling for Minerals Sustainability (“PrOMMiS”) initiative, and is
+# copyrighted by the software owners: The Regents of the University of California, through Lawrence
+# Berkeley National Laboratory, National Technology & Engineering Solutions of Sandia, LLC through
+# Sandia National Laboratories, Carnegie Mellon University, University of Notre Dame, and West
+# Virginia University Research Corporation.
+#
+# NOTICE. This Software was developed under funding from the U.S. Department of Energy and the
+# U.S. Government consequently retains certain rights. As such, the U.S. Government has been granted
+# for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide license
+# in the Software to reproduce, distribute copies to the public, prepare derivative works, and perform
+# publicly and display publicly, and to permit other to do so.
+#
 #################################################################################
 """
 Compute diagnostics values and return as Pydantic data models.
@@ -352,7 +357,7 @@ class DiagnosticsData:
         """Same as `all_as_dict` except each top-level value is an object instead of a dict.
 
         Note that the keys returned here should match the attributes
-        of `idaes_fi.structfs.runner_actions.Diagnostics.Report`.
+        of `idaes_fi.structfs.actions.Diagnostics.Report`.
 
         Returns:
             dict: Diagnostics data with string keys and Pydantic model object values
@@ -545,7 +550,7 @@ class DiagnosticsData:
                 if un_func is None:
                     u = str(v.get_units())
                     # replace 'None' with an empty string
-                    # -- to match `runner_actions.ModelVariables`
+                    # -- to match `actions.ModelVariables`
                     if u == "None":
                         u = ""
                 else:
