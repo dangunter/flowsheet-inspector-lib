@@ -330,11 +330,7 @@ def test_unit_model_report_bad_perf():
     action = UnitModelReport(FakeRunner())
     # this component will trigger both the missing-var-section in performance contents
     # and the attribute error for _get_stream_table_contents
-    comp = SimpleNamespace(
-        {
-            "_get_performance_contents": lambda time_point: {"foo": {}},
-        }
-    )
+    comp = SimpleNamespace(_get_performance_contents=lambda time_point: {"foo": {}})
     action._dof = False  # avoids calls involving `comp`
     print("> get report")
     action._get_report(comp)
