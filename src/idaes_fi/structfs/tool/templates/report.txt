@@ -1,0 +1,13 @@
+=========================================================
+   Report for flowsheet: {{ name }}
+=========================================================
+
+{% if actions.solver_results is defined %}
+{% set r = actions.solver_results.results[-1] %}
+  {% if r.solver.Status == "ok"  %}
+** SUCCESS! {{ r.solver.Message }}
+  {% else %}
+!! FAILURE. {{ r.solver.Message }}
+  {% endif %}
+{% endif %}
+
