@@ -267,9 +267,9 @@ class Runner:
             )
         step.add_substep(substep_name, func)
 
-    def run_step(self, name):
+    def run_step(self, name, **kwargs):
         """Syntactic sugar for calling `run_steps` for a single step."""
-        self.run_steps(first=name, last=name)
+        self.run_steps(first=name, last=name, **kwargs)
 
     def run_steps(
         self,
@@ -311,8 +311,10 @@ class Runner:
             (bool(first) or not bool(after), bool(last) or not bool(before)),
             closest_step,
         )
+        self._save_report_flag = save_report
+        print(f"@@ run steps with save_report={self._save_report_flag}")
         if save_report:
-            self._rpt_id = self._start_report_record()
+            self._start_report_record()
         self._run_steps(*args)
         if save_report:
             try:
@@ -464,10 +466,7 @@ class Runner:
         ok: bool,
         errmsg: str,
     ):
-        # TODO: add step status to database
-        # run_id=self._rpt_id, step_num, step_name, start-time, duration, errcode, errmsg
-        if ok:
-            self._last_run_steps.append(step_name)
+        if self._save_report_flag:
             self._report_db.add_status(
                 run_id=self._rpt_id,
                 step_num=step_num,
@@ -477,6 +476,8 @@ class Runner:
                 errcode=0 if ok else 1,
                 errmsg=errmsg,
             )
+        if ok:
+            self._last_run_steps.append(step_name)
         else:
             _log.error(f"Step failed: {self._failed[0]}")
 

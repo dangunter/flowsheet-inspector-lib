@@ -270,7 +270,7 @@ def test_flowsheet_runner_run_steps(runnerclass):
     if runnerclass is FlowsheetRunner:
         for sugar in ("build", "solve_initial"):
             calls.clear()
-            getattr(runner, sugar)()
+            getattr(runner, sugar)(save_report=False)
         runner.show_diagram()
 
 
@@ -318,13 +318,13 @@ def test_with_no_connectivity(empty_fsrunner):
 )
 def test_set_solver_baseflowsheetrunner_init(solver_name, solver_opts):
     runner = BaseFlowsheetRunner(solver=solver_name, solver_options=solver_opts)
-    runner.run_steps()
+    runner.run_steps(save_report=False)
 
 
 def test_no_solver_baseflowsheetrunner(empty_fsrunner_build_only):
     runner = empty_fsrunner_build_only
 
-    runner.run_steps()
+    runner.run_steps(save_report=False)
 
 
 ## Testing the run_flowsheet() function
@@ -566,7 +566,7 @@ def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
         sdb = sqlite3.connect(db_file)
         sdb.execute("CREATE TABLE reports (foo varchar);")
         sdb.commit()
-        expect_out, expect_err = "no such column", None
+        expect_out, expect_err = "no column", None
     elif mischief == "no_table":
         # create empty database
         sdb = sqlite3.connect(db_file)

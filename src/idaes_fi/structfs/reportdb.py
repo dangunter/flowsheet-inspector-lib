@@ -83,6 +83,7 @@ class ReportDB:
         ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
         ("run_id", "INTEGER"),
         ("step_num", "INTEGER"),
+        ("step_name", "TEXT"),
         ("start", "REAL"),
         ("duration", "REAL"),
         ("errcode", "INTEGER"),
@@ -347,7 +348,7 @@ class ReportDB:
         """Add a new record for the status of an executed flowsheet step."""
         with self._connect() as conn:
             last_id = -1
-            insert_cols = self.STAT_COL[1:]  # skip 'id'
+            insert_cols = [x[0] for x in self.STAT_COL[1:]]  # get names, skip 'id'
             colvalues = (run_id, step_num, step_name, start, duration, errcode, errmsg)
             insert_cols_str = ",".join(insert_cols)
             ph = ",".join("?" * len(insert_cols))

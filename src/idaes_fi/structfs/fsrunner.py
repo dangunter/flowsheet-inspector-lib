@@ -347,13 +347,13 @@ class FlowsheetRunner(BaseFlowsheetRunner):
         self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
         self.add_action(ActionNames.TIMINGS.value, Timer)
 
-    def build(self):
+    def build(self, **kwargs):
         """Run just the build step"""
-        self.run_step("build")
+        self.run_step("build", **kwargs)
 
-    def solve_initial(self):
+    def solve_initial(self, **kwargs):
         """Perform all steps up to 'solve_initial'"""
-        self.run_steps(last="solve_initial")
+        self.run_steps(last="solve_initial", **kwargs)
 
     def show_diagram(self):
         """Return the diagram."""
