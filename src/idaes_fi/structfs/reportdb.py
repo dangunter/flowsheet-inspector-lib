@@ -58,15 +58,15 @@ class ReportDB:
     MINOR_VERSION = 0
     VERSION_TABLE = "version"
 
-    TABLE = "reports"
-    TARGET_COLUMNS = (
+    RPT_TABLE = "reports"
+    RPT_TGT_COL = (
         ("name", "TEXT"),
         ("module", "TEXT"),
         ("filedir", "TEXT"),
         ("filename", "TEXT"),
         ("hash", "TEXT"),
     )
-    COLUMNS = tuple(
+    RPT_COL = tuple(
         [
             ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
             ("created", "REAL"),
@@ -76,12 +76,22 @@ class ReportDB:
             ("run_exception", "TEXT"),
             ("report", "BLOB"),
         ]
-        + list(TARGET_COLUMNS)
+        + list(RPT_TGT_COL)
+    )
+    STAT_TABLE = "status"
+    STAT_COL = (
+        ("id", "INTEGER PRIMARY KEY AUTOINCREMENT"),
+        ("run_id", "INTEGER"),
+        ("step_num", "INTEGER"),
+        ("start", "REAL"),
+        ("duration", "REAL"),
+        ("errcode", "INTEGER"),
+        ("errmsg", "TEXT"),
     )
 
     def __init__(self, filename: str, **target_kw):
         self._filename = filename
-        self._tgtcol = [name for name, type_ in self.TARGET_COLUMNS]
+        self._tgtcol = [name for name, type_ in self.RPT_TGT_COL]
         self._tgtval = {k: "" for k in self._tgtcol}
         if target_kw:
             self.set_target(**target_kw)
@@ -179,7 +189,7 @@ class ReportDB:
         return major_version, minor_version
 
     def create(self, drop=False, exist_ok=True) -> "ReportDB":
-        """Create the reports table in the database.
+        """Create the reports & stats tables in the database.
 
         Args:
             drop: If ``True``, drop the existing reports table before creating
@@ -194,13 +204,18 @@ class ReportDB:
         """
         _log.info("Create reports table")
         with self._connect() as conn:
-            # create new report table
+            # create new report and status tables
             if drop:
-                conn.execute(f"DROP TABLE IF EXISTS {self.TABLE};")
-            create_cols = self._all_columns(typed=True)
+                conn.execute(f"DROP TABLE IF EXISTS {self.RPT_TABLE};")
+                conn.execute(f"DROP TABLE IF EXISTS {self.STAT_TABLE};")
+            rpt_cols = self._all_columns(typed=True)
+            stat_cols = (f"{nm} {ty}" for nm, ty in self.STAT_COL)
             exists = "IF NOT EXISTS " if exist_ok else ""
             conn.execute(
-                f"CREATE TABLE {exists}{self.TABLE} ( {', '.join(create_cols)} );"
+                f"CREATE TABLE {exists}{self.RPT_TABLE} ( {', '.join(rpt_cols)} );"
+            )
+            conn.execute(
+                f"CREATE TABLE {exists}{self.STAT_TABLE} ( {', '.join(stat_cols)} );"
             )
             # create new version table (always drop old)
             conn.execute(f"DROP TABLE IF EXISTS {self.VERSION_TABLE};")
@@ -216,7 +231,7 @@ class ReportDB:
 
     def _all_columns(self, typed=False, exclude=None):
         result = []
-        for nm, ty in self.COLUMNS:
+        for nm, ty in self.RPT_COL:
             if exclude and nm in exclude:
                 continue
             result.append(f"{nm} {ty}" if typed else nm)
@@ -229,8 +244,9 @@ class ReportDB:
         run_status: bool = False,
         run_exc: str = "",
         solver_status: str = "NA",
+        update_row_id: int = -1,
         **target_kw,
-    ):
+    ) -> int:
         """Insert a report and its metadata into the database.
 
         Args:
@@ -240,9 +256,13 @@ class ReportDB:
             run_status: Overall run success flag to store with the report.
             run_exc: Overall run exception message, if it failed.
             solver_status: Solver status value to store with the report.
+            update_row_id: If 1 or greater, update a row with this id instead of adding new row
             **target_kw: Target metadata values for this report keyed by names
                 in :attr:`TARGET_COLUMNS`. Values not provided here fall back
                 to the current target set by :meth:`set_target`.
+
+        Returns:
+            id of newly created record
 
         Raises:
             KeyError: If required target metadata is missing from both
@@ -283,15 +303,56 @@ class ReportDB:
             ph = ",".join("?" * len(insert_cols))
             # execute the insert
             cur = conn.cursor()
-            insert_cols_str = ", ".join(insert_cols)
-            stmt = f"INSERT INTO {self.TABLE} ({insert_cols_str}) VALUES ({ph})"
+            if update_row_id < 1:
+                insert_cols_str = ", ".join(insert_cols)
+                stmt = (
+                    f"INSERT INTO {self.RPT_TABLE} ({insert_cols_str}) VALUES ({ph});"
+                )
+            else:
+                ph = ",".join((f"{col} = ?" for col in insert_cols))
+                stmt = f"UPDATE {self.RPT_TABLE} SET {ph} WHERE id = {update_row_id}"
+
+            last_id = -1
             try:
                 cur.execute(stmt, colvalues)
+                last_id = cur.lastrowid
             except sqlite3.OperationalError as err:
                 raise DBError(err)
             finally:
                 # cleanup
                 cur.close()
+
+        return last_id
+
+    def add_status(
+        self,
+        run_id: int,
+        step_num: int = 0,
+        step_name: str = "",
+        start: float = 0.0,
+        duration: float = 0.0,
+        errcode: int = 0,
+        errmsg: str = "",
+    ):
+        """Add a new record for the status of an executed flowsheet step."""
+        with self._connect() as conn:
+            last_id = -1
+            insert_cols = self.STAT_COL[1:]  # skip 'id'
+            colvalues = (run_id, step_num, step_name, start, duration, errcode, errmsg)
+            insert_cols_str = ",".join(insert_cols)
+            ph = ",".join("?" * len(insert_cols))
+            stmt = f"INSERT INTO {self.STAT_TABLE} ({insert_cols_str}) VALUES ({ph})"
+            cur = conn.cursor()
+            try:
+                cur.execute(stmt, colvalues)
+                last_id = cur.lastrowid
+            except sqlite3.OperationalError as err:
+                raise DBError(err)
+            finally:
+                # cleanup
+                cur.close()
+
+        return last_id
 
     def get_metadata(self, tags: str = "", **target_kw):
         """Yield metadata rows for reports matching the provided filters.
@@ -310,7 +371,7 @@ class ReportDB:
             sqlite3.Error: If SQLite cannot execute the query.
         """
         columns = ", ".join(self._all_columns(exclude=("report",)))
-        stmt = f"SELECT {columns} from {self.TABLE}"
+        stmt = f"SELECT {columns} from {self.RPT_TABLE}"
         stmt += self._where(target_kw, tags=tags)
         with self._connect() as conn:
             for row in conn.execute(stmt):
@@ -331,7 +392,7 @@ class ReportDB:
             json.JSONDecodeError: If the stored payload is not valid JSON.
         """
         with self._connect() as conn:
-            with conn.blobopen(self.TABLE, "report", index) as blob:
+            with conn.blobopen(self.RPT_TABLE, "report", index) as blob:
                 data = blob.read()
         return json.loads(data.decode("utf-8"))
 
@@ -369,7 +430,7 @@ class ReportDB:
         # connect to db
         with self._connect() as conn:
             # build query
-            stmt = f"SELECT {columns} FROM {self.TABLE}"
+            stmt = f"SELECT {columns} FROM {self.RPT_TABLE}"
             stmt += self._where(kwargs, tags=tags)
             # run query
             row = conn.execute(stmt).fetchone()
@@ -414,7 +475,7 @@ class ReportDB:
         # connect to db
         with self._connect() as conn:
             # build query
-            stmt = f"SELECT MAX(id) FROM {self.TABLE}"
+            stmt = f"SELECT MAX(id) FROM {self.RPT_TABLE}"
             stmt += self._where(kwargs, tags=tags)
             # run query
             try:
@@ -424,7 +485,7 @@ class ReportDB:
             # if none, done; else read the report
             if index is None:
                 return None  # RETURN!
-            with conn.blobopen(self.TABLE, "report", int(index)) as blob:
+            with conn.blobopen(self.RPT_TABLE, "report", int(index)) as blob:
                 data = blob.read()
 
         # parse report into dict before returning it
