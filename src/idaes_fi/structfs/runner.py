@@ -312,7 +312,6 @@ class Runner:
             closest_step,
         )
         self._save_report_flag = save_report
-        print(f"@@ run steps with save_report={self._save_report_flag}")
         if save_report:
             self._start_report_record()
         self._run_steps(*args)

@@ -623,3 +623,32 @@ def test__find_wrapped_main():
     fake_module = SimpleNamespace(fi_main=True, __name__="fake_module")
     result = fsrunner._find_wrapped_main(fake_module)
     assert result is None
+
+
+@pytest.mark.integration
+def test_run_step_status(tmp_path):
+    from .demo_flowsheet_structured import FS
+    import json
+
+    set_tmp_db(FS, tmp_path)
+    FS.run_steps()
+    tmpdb = FS.get_report_db()
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        cur.execute(f"select id from {tmpdb.RPT_TABLE};")
+        rows = list(cur.fetchall())
+        assert len(rows) == 1
+        rptid = rows[0][0]
+        cur.execute(
+            f"select step_num, step_name, errcode, errmsg, start, duration from {tmpdb.STAT_TABLE} "
+            f"where run_id = ?;",
+            (rptid,),
+        )
+        rows = list(cur.fetchall())
+        steplist = FS.get_defined_steps()
+        assert len(rows) == len(steplist)
+        for i, name in enumerate(steplist):
+            print(f"check row {i}: {rows[i]}")
+            assert rows[i][1] == name
+            assert rows[i][2] == 0
+            assert rows[i][3] == ""
