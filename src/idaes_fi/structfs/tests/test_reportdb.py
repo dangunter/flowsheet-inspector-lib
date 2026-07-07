@@ -19,6 +19,7 @@
 Tests for reportdb module
 """
 
+import json
 import pytest
 from idaes_fi.structfs import reportdb
 
@@ -77,7 +78,7 @@ def test_set_target(tmpdb):
         tmpdb.set_target(**{})
     # try each column
     all_col = {}
-    for tgtcol in tmpdb.TARGET_COLUMNS:
+    for tgtcol in tmpdb.RPT_TGT_COL:
         name = tgtcol[0]
         kw = {name: "value"}
         tmpdb.set_target(**kw)
@@ -91,21 +92,21 @@ def test_set_target(tmpdb):
 
 @pytest.mark.unit
 def test_get_target(tmpdb):
-    kw = {c[0]: "value" for c in tmpdb.TARGET_COLUMNS}
+    kw = {c[0]: "value" for c in tmpdb.RPT_TGT_COL}
     tmpdb.set_target(**kw)
     # change values in input keywords
-    for c in tmpdb.TARGET_COLUMNS:
+    for c in tmpdb.RPT_TGT_COL:
         kw[c[0]] = "value1"
     # assure that value in tmpdb has not changed
     tgt = tmpdb.get_target()
-    for c in tmpdb.TARGET_COLUMNS:
+    for c in tmpdb.RPT_TGT_COL:
         assert kw[c[0]] != tgt[c[0]]
         # modify value returned by get_target
         tgt[c[0]] = kw[c[0]]
     # assure that changes to get_target return value
     # are not in the object (i.e. it is a copy)
     tgt = tmpdb.get_target()
-    for c in tmpdb.TARGET_COLUMNS:
+    for c in tmpdb.RPT_TGT_COL:
         assert kw[c[0]] != tgt[c[0]]
 
 
@@ -127,3 +128,51 @@ def test_get_last_meta(tmpdb):
     tmpdb.add_report({"name": "value"}, tags=tags)
     m = tmpdb.get_last_meta()
     assert m["tags"] == tags
+
+
+@pytest.mark.unit
+def test_create(tmpdb):
+    tmpdb.create(exist_ok=False)
+
+
+@pytest.mark.unit
+def test_status(tmpdb):
+    tmpdb.create(exist_ok=False)
+    # add a fake record
+    tags = "tag1 tag2"
+    rowid = tmpdb.add_report({}, tags=tags)
+    # add statii for a steps
+    steplist = ((1, "build"), (2, "initialize"), (3, "solve_optimization"))
+    for num, name in steplist:
+        errcode = num % 2
+        errmsg = "boom!" if errcode else ""
+        tmpdb.add_status(
+            rowid, step_num=num, step_name=name, errcode=errcode, errmsg=errmsg
+        )
+    # update record with fake report
+    fake_report = {"fake": "report"}
+    tmpdb.add_report(fake_report, update_row_id=rowid)
+    # check that there is 1 report with status for each step
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        cur.execute(f"select id, report from {tmpdb.RPT_TABLE};")
+        rows = list(cur.fetchall())
+        assert len(rows) == 1
+        db_report = json.loads(rows[0][1])
+        assert db_report == fake_report
+        rptid = rows[0][0]
+        cur.execute(
+            f"select step_num, step_name, errcode, errmsg from {tmpdb.STAT_TABLE} "
+            f"where run_id = ?;",
+            (rptid,),
+        )
+        rows = list(cur.fetchall())
+        assert len(rows) == len(steplist)
+        for i, (num, name) in enumerate(steplist):
+            print(f"check row {i}: {rows[i]}")
+            assert rows[i][0] == num
+            assert rows[i][1] == name
+            expect_errcode = num % 2
+            assert rows[i][2] == expect_errcode
+            expect_errmsg = "boom!" if expect_errcode else ""
+            assert rows[i][3] == expect_errmsg

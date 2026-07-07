@@ -22,6 +22,7 @@ Run functions in a module in a defined, named, sequence.
 import importlib
 import logging
 from pathlib import Path
+import time
 import traceback
 from typing import Callable, Optional, Tuple, Sequence, TypeVar
 
@@ -184,15 +185,13 @@ class Runner:
         report_db_path = data_path / "reportdb.sqlite"
 
         # set `db` to a new ReportDB instance
-        if report_db_path.exists():
-            # if it exists, just open it
-            db = ReportDB(report_db_path)
-        elif not create:
+        if not report_db_path.exists() and not create:
             raise ValueError(f"Report database not found at path: {report_db_path}")
-        else:
-            # if it doesn't exist, create tables
-            db = ReportDB(report_db_path)
-            db.create()
+        # create(exist_ok=True) is safe on an existing DB and adds any missing
+        # tables (e.g. the `status` table) to a database created by an older
+        # schema, so opening a pre-existing DB also migrates it forward.
+        db = ReportDB(report_db_path)
+        db.create(exist_ok=True)
 
         return db
 
@@ -266,9 +265,9 @@ class Runner:
             )
         step.add_substep(substep_name, func)
 
-    def run_step(self, name):
+    def run_step(self, name, **kwargs):
         """Syntactic sugar for calling `run_steps` for a single step."""
-        self.run_steps(first=name, last=name)
+        self.run_steps(first=name, last=name, **kwargs)
 
     def run_steps(
         self,
@@ -310,6 +309,9 @@ class Runner:
             (bool(first) or not bool(after), bool(last) or not bool(before)),
             closest_step,
         )
+        self._save_report_flag = save_report
+        if save_report:
+            self._start_report_record()
         self._run_steps(*args)
         if save_report:
             try:
@@ -426,10 +428,13 @@ class Runner:
                 step = self._steps.get(self._step_names[i], None)
                 # if the step is defined, run it
                 if step:
+                    step_begin_t = time.time()
                     step.func(self._context)
-                    self._last_run_steps.append(step.name)
+                    step_end_t = time.time()
+                    ok = not bool(self._failed)
+                    errmsg = "" if ok else str(self._failed[1])
+                    self._log_step(i, step.name, step_begin_t, step_end_t, ok, errmsg)
                 if self._failed:
-                    _log.error(f"Step failed: {self._failed[0]}")
                     break  # stop
 
         # execute overall after-run action
@@ -449,9 +454,43 @@ class Runner:
                         self._actions_failed[where] = err
                     continue  # allow all after_run actions, only record first failure
 
+    def _log_step(
+        self,
+        step_num: int,
+        step_name: str,
+        begin_t: float,
+        end_t: float,
+        ok: bool,
+        errmsg: str,
+    ):
+        if self._save_report_flag:
+            self._report_db.add_status(
+                run_id=self._rpt_id,
+                step_num=step_num,
+                step_name=step_name,
+                start=begin_t,
+                duration=(end_t - begin_t),
+                errcode=0 if ok else 1,
+                errmsg=errmsg,
+            )
+        if ok:
+            self._last_run_steps.append(step_name)
+        else:
+            _log.error(f"Step failed: {self._failed[0]}")
+
+    def _start_report_record(self):
+        """Start a new report record, which will later be updated with data.
+        This allows updates to the the 'status' table referring to this report, before
+        the full report data is available.
+        """
+        _log.debug("Starting report record in DB")
+        # create empty report, remember its id
+        self._rpt_id = self._report_db.add_report({})
+        _log.debug(f"Created report record id={self._rpt_id} in DB")
+
     def _save_report(self):
         rpt = self.report()
-        _log.debug("Adding report to DB")
+        _log.debug(f"Adding report id={self._rpt_id} to DB")
 
         # get solver result (even if we failed!)
         try:
@@ -482,6 +521,7 @@ class Runner:
             solver_status=solver_result,
             run_status=run_result,
             run_exc=run_error,
+            update_row_id=self._rpt_id,
         )
 
     def set_report_target(self, **target_kw):
