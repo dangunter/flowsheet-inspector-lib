@@ -38,10 +38,16 @@ from ..fsrunner import BaseFlowsheetRunner
 class SolverActionBase(Action):
     """Base class for actions to get solver state, output, etc."""
 
-    #: By default, consider any step with 'solve' in its name to
+    #: By default, consider any step whose name *starts with* 'solve' to
     #: be a solver step. This can be overridden by setting :attr:`solve_steps`
     #: to some other list of step names.
-    DEFAULT_SOLVE_STEPS = [s for s in BaseFlowsheetRunner.STEPS if "solve" in s]
+    #:
+    #: Note: the match is a prefix, not a substring, on purpose. A substring
+    #: match ("solve" in name) wrongly classifies ``set_solver`` (which merely
+    #: *configures* the solver) as a solve step, which then makes
+    #: CaptureSolverOutput redirect stdout around it and left stale capture
+    #: state behind.
+    DEFAULT_SOLVE_STEPS = [s for s in BaseFlowsheetRunner.STEPS if s.startswith("solve")]
 
     def __init__(self, runner: BaseFlowsheetRunner, **kwargs):
         """Initialize solver output capture state.
@@ -108,13 +114,24 @@ class CaptureSolverOutput(SolverActionBase):
             self._logs[step_name] = self._solver_out.getvalue()
             self._solver_out = None
             sys.stdout = self._save_stdout
+            # Clear the saved stdout too, so a later non-solve step that fails
+            # does not see a stale `_save_stdout` and try to flush the
+            # already-None `_solver_out` (which would raise and abort the run).
+            self._save_stdout = None
 
     def step_failed(self, step_name: str, err: Exception):
-        if self._save_stdout:
+        # Only restore/flush when a capture is actually active (i.e. a solve
+        # step is currently redirecting stdout). Gate on `_solver_out`, not
+        # `_save_stdout`: a non-solve step can fail after a solve step has
+        # already run, at which point `_solver_out` is None and there is
+        # nothing to flush.
+        if self._solver_out is not None:
             sys.stdout = self._save_stdout
             self._solver_out.flush()
             # print stored stdout for debugging help
             print(self._solver_out.getvalue())
+            self._solver_out = None
+            self._save_stdout = None
 
     def report(self) -> Report:
         """Machine-readable report with solver output.

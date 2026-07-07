@@ -652,3 +652,60 @@ def test_run_step_status(tmp_path):
             assert rows[i][1] == name
             assert rows[i][2] == 0
             assert rows[i][3] == ""
+
+
+@pytest.mark.integration
+def test_step_status_persisted_on_nonsolve_failure(tmp_path):
+    """Regression: a non-solve step failing after a solve step already ran must
+    not crash the run; the failed step's status row and the report must persist.
+
+    Self-contained on purpose: does NOT depend on any demo flowsheet actually
+    converging. The bug was an AttributeError in CaptureSolverOutput.step_failed
+    that escaped the step wrapper, aborting `_run_steps` before the failed step's
+    status row (`_log_step`) or the report (`_save_report`) were written.
+    """
+    FS = FlowsheetRunner(steps=("build", "solve_initial", "set_scaling"))
+    set_tmp_db(FS, tmp_path)
+
+    @FS.step("build")
+    def build(ctx: Context):
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        ctx.model = m
+
+    @FS.step("solve_initial")  # a real solve step: stdout capture activates here
+    def solve_initial(ctx: Context):
+        print("pretend solver output")
+
+    @FS.step("set_scaling")  # non-solve step that fails AFTER the solve step
+    def set_scaling(ctx: Context):
+        raise RuntimeError("scaling blew up")
+
+    # must not raise (previously an AttributeError aborted the whole run)
+    FS.run_steps()
+    assert FS.failed
+
+    tmpdb = FS.get_report_db()
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        # the report row was saved (not aborted) and marked as a failed run
+        cur.execute(f"select id, length(report), run_status from {tmpdb.RPT_TABLE};")
+        rpt_rows = list(cur.fetchall())
+        assert len(rpt_rows) == 1
+        rptid, rpt_len, run_status = rpt_rows[0]
+        assert rpt_len > 2  # report BLOB is not the empty "{}" (length 2)
+        assert run_status == 0  # run recorded as failed
+
+        # every step, including the failed one, has a status row
+        cur.execute(
+            f"select step_name, errcode, errmsg from {tmpdb.STAT_TABLE} "
+            f"where run_id = ? order by step_num;",
+            (rptid,),
+        )
+        by_name = {r[0]: r for r in cur.fetchall()}
+        assert set(by_name) == {"build", "solve_initial", "set_scaling"}
+        assert by_name["build"][1] == 0
+        assert by_name["solve_initial"][1] == 0
+        # the failed non-solve step is recorded with errcode=1 and its message
+        assert by_name["set_scaling"][1] == 1
+        assert "scaling blew up" in by_name["set_scaling"][2]
