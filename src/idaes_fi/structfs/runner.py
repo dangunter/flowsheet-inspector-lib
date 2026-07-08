@@ -463,6 +463,18 @@ class Runner:
         ok: bool,
         errmsg: str,
     ):
+        """Record the outcome of a single step in the report DB `status` table.
+
+        Also tracks the step as run (on success) or logs the failure.
+
+        Args:
+            step_num: Index of the step in the canonical step order.
+            step_name: Name of the step.
+            begin_t: Step start time (Unix timestamp, seconds).
+            end_t: Step end time (Unix timestamp, seconds).
+            ok: Whether the step succeeded.
+            errmsg: Error message if the step failed, else empty string.
+        """
         if self._save_report_flag:
             self._report_db.add_status(
                 run_id=self._rpt_id,

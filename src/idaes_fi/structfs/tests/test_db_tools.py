@@ -46,6 +46,7 @@ def populated_db(tmp_path):
 
 @pytest.mark.unit
 def test_info_command(populated_db, capfd):
+    """`fi-db info` prints the record count and database summary."""
     assert db_tools.main(["info", "--db", populated_db]) == 0
     out = capfd.readouterr().out
     assert "Database file" in out
@@ -55,6 +56,7 @@ def test_info_command(populated_db, capfd):
 
 @pytest.mark.unit
 def test_view_command(populated_db, capfd):
+    """`fi-db view` lists all records with the combined file column."""
     assert db_tools.main(["view", "--db", populated_db]) == 0
     out = capfd.readouterr().out
     assert "run_one" in out
@@ -65,6 +67,7 @@ def test_view_command(populated_db, capfd):
 
 @pytest.mark.unit
 def test_view_name_fixed(populated_db, capfd):
+    """`--name_fixed` filters records by exact name."""
     assert db_tools.main(["view", "--db", populated_db, "--name_fixed", "run_one"]) == 0
     out = capfd.readouterr().out
     assert "run_one" in out
@@ -73,6 +76,7 @@ def test_view_name_fixed(populated_db, capfd):
 
 @pytest.mark.unit
 def test_view_name_regex(populated_db, capfd):
+    """`--name_re` filters records by a regular expression on name."""
     assert db_tools.main(["view", "--db", populated_db, "--name_re", "run_t.*"]) == 0
     out = capfd.readouterr().out
     assert "run_two" in out
@@ -81,6 +85,7 @@ def test_view_name_regex(populated_db, capfd):
 
 @pytest.mark.unit
 def test_view_tags(populated_db, capfd):
+    """`--tags` filters records by tag."""
     assert db_tools.main(["view", "--db", populated_db, "--tags", "alpha"]) == 0
     out = capfd.readouterr().out
     assert "run_one" in out
@@ -89,6 +94,7 @@ def test_view_tags(populated_db, capfd):
 
 @pytest.mark.unit
 def test_view_time_range(populated_db, capfd):
+    """`--time_min`/`--time_max` filter records by creation time range."""
     assert (
         db_tools.main(
             [
@@ -109,26 +115,28 @@ def test_view_time_range(populated_db, capfd):
 
 @pytest.mark.unit
 def test_view_bad_time_min(populated_db, capfd):
-    # non-ISO time string -> CommandError -> non-zero exit
+    """A non-ISO `--time_min` reports an error and exits non-zero."""
     assert db_tools.main(["view", "--db", populated_db, "--time_min", "nope"]) != 0
     assert "ERROR" in capfd.readouterr().out
 
 
 @pytest.mark.unit
 def test_view_bad_time_max(populated_db, capfd):
+    """A non-ISO `--time_max` reports an error and exits non-zero."""
     assert db_tools.main(["view", "--db", populated_db, "--time_max", "nope"]) != 0
     assert "ERROR" in capfd.readouterr().out
 
 
 @pytest.mark.unit
 def test_view_bad_regex(populated_db, capfd):
-    # invalid regular expression -> CommandError -> non-zero exit
+    """An invalid `--name_re` regex reports an error and exits non-zero."""
     assert db_tools.main(["view", "--db", populated_db, "--name_re", "["]) != 0
     assert "ERROR" in capfd.readouterr().out
 
 
 @pytest.mark.unit
 def test_info_uninitialized_db(tmp_path, capfd):
+    """`fi-db info` on an uninitialized DB reports an error and exits non-zero."""
     # a valid SQLite file that has not been initialized as a report DB
     # (no `version` table) -> DBError -> CommandError -> non-zero exit
     import sqlite3
@@ -141,6 +149,7 @@ def test_info_uninitialized_db(tmp_path, capfd):
 
 @pytest.mark.unit
 def test_verbose_and_quiet_flags(populated_db, capfd):
+    """The `-v`/`-q` logging flags are accepted by the commands."""
     # exercise the logging-setup branches
     assert db_tools.main(["info", "--db", populated_db, "-vv"]) == 0
     capfd.readouterr()

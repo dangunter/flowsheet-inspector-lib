@@ -41,13 +41,23 @@ _log = logging.getLogger(__name__)
 
 
 class CommandError(Exception):
+    """Raised when a `fi-db` subcommand fails; carries the command name."""
+
     def __init__(self, command: str, error: str):
+        """Build the error message.
+
+        Args:
+            command: Name of the subcommand that failed (e.g. "info").
+            error: Underlying error or message.
+        """
         msg = f"in command '{command}': {error}"
         super().__init__(msg)
 
 
 @dataclass
 class Info:
+    """Summary information about a report database, filled in by the `info` command."""
+
     file: Path = None
     major_version: int = 0
     minor_version: int = 0
@@ -56,6 +66,14 @@ class Info:
 
 
 def _info_command(args):
+    """Run the `info` subcommand: print summary information about the database.
+
+    Args:
+        args: Parsed command-line arguments (uses `args.db`).
+
+    Raises:
+        CommandError: If the database cannot be read.
+    """
     dbfile = args.db
     if dbfile is None:
         db = Runner.get_default_report_db()
@@ -68,7 +86,18 @@ def _info_command(args):
     _info_print(info)
 
 
-def _info_fetch(db: ReportDB):
+def _info_fetch(db: ReportDB) -> "Info":
+    """Query a report database for its version, record count and date range.
+
+    Args:
+        db: Report database to inspect.
+
+    Returns:
+        Info: Populated summary information.
+
+    Raises:
+        DBError: If the database cannot be queried.
+    """
     _applog.info(f"query database '{db.filename}'")
     info = Info()
     info.major_version, info.minor_version = db.version
@@ -86,8 +115,13 @@ def _info_fetch(db: ReportDB):
 
 
 def _info_print(info: Info, stream: IOBase = None):
-    # resolve stdout at call time, not at import time, so the output stream can
-    # be redirected (e.g. by test capture) after this module is imported
+    """Print database summary information as aligned key/value lines.
+
+    Args:
+        info: Summary information to print.
+        stream: Output stream. Defaults to `sys.stdout`, resolved at call time
+            (not import time) so it can be redirected (e.g. by test capture).
+    """
     if stream is None:
         stream = sys.stdout
     _print_aligned(
@@ -125,10 +159,26 @@ class SearchSpec:
 
     @classmethod
     def fields(cls) -> list[str]:
+        """List the search fields as ``(name, type, help-text)`` tuples.
+
+        Used to build the `view` subcommand's command-line options.
+
+        Returns:
+            One ``(name, type, doc)`` tuple per search field.
+        """
         return [(f.name, f.type, f.metadata["doc"]) for f in dataclasses.fields(cls)]
 
 
 def _view_command(args):
+    """Run the `view` subcommand: print report records matching the filters.
+
+    Args:
+        args: Parsed command-line arguments (`db` plus the `SearchSpec` fields:
+            time range, name filters, tags, limit).
+
+    Raises:
+        CommandError: If a filter value is invalid or the query fails.
+    """
     dbfile = args.db
     if dbfile is None:
         db = Runner.get_default_report_db()
@@ -181,6 +231,7 @@ def _view_command(args):
     _applog.debug(f"report query: {query} params={params}")
 
     def regexp(pattern, value):
+        """SQLite REGEXP callback: True if `value` matches the compiled pattern."""
         return value is not None and name_pattern.search(value) is not None
 
     rows = []
@@ -216,6 +267,12 @@ def _view_command(args):
 
 
 def _view_print(stream: IOBase, df: pd.DataFrame):
+    """Print report records as a plain-text table.
+
+    Args:
+        stream: Output stream to write to.
+        df: DataFrame of report records to render.
+    """
     stream.write(df.to_string(header=True, index=False))
 
 
@@ -223,6 +280,13 @@ def _view_print(stream: IOBase, df: pd.DataFrame):
 
 
 def _print_aligned(stream: IOBase, kvp: dict[str, str], sep=":"):
+    """Write key/value pairs with the separators aligned in a column.
+
+    Args:
+        stream: Output stream to write to.
+        kvp: Mapping of labels to values.
+        sep: Separator printed between each key and value.
+    """
     key_max_len = 0
     for key in kvp:
         key_max_len = max(key_max_len, len(key))
@@ -233,11 +297,30 @@ def _print_aligned(stream: IOBase, kvp: dict[str, str], sep=":"):
 
 
 def _time_string(t: float) -> str:
+    """Format a Unix timestamp as a ``YYYY-MM-DD HH:MM:SS`` local-time string.
+
+    Args:
+        t: Unix timestamp (seconds).
+
+    Returns:
+        Formatted date/time string.
+    """
     dt = datetime.datetime.fromtimestamp(t)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _parse_time(t: str) -> float:
+    """Parse an ISO-format date/time string into a Unix timestamp.
+
+    Args:
+        t: ISO-format date/time (e.g. ``2026-01-31`` or ``2026-01-31 12:00:00``).
+
+    Returns:
+        Unix timestamp (seconds).
+
+    Raises:
+        ValueError: If `t` is not a valid ISO-format date/time.
+    """
     parsed = datetime.datetime.fromisoformat(t)
     return parsed.timestamp()
 
@@ -245,6 +328,11 @@ def _parse_time(t: str) -> float:
 # CLI
 # ---
 def _build_parser() -> argparse.ArgumentParser:
+    """Build the `fi-db` argument parser with the `info` and `view` subcommands.
+
+    Returns:
+        Configured argument parser.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -269,6 +357,11 @@ def _build_parser() -> argparse.ArgumentParser:
 
 
 def _add_parser_common(p: argparse.ArgumentParser):
+    """Add the options shared by every subcommand (``--db``, ``--verbose``, ``--quiet``).
+
+    Args:
+        p: Subcommand parser to add the common arguments to.
+    """
     p.add_argument("-d", "--db", metavar="PATH", help="Use this database file")
     p.add_argument(
         "-v", "--verbose", action="count", default=0, help="Increase verbosity"
@@ -279,6 +372,12 @@ def _add_parser_common(p: argparse.ArgumentParser):
 
 
 def _setup_logging(vb: int, quiet: bool):
+    """Configure logging for the tool and the report-db module.
+
+    Args:
+        vb: Verbosity count (0=warning, 1=info, 2+=debug).
+        quiet: If True, suppress all but critical messages (overrides `vb`).
+    """
     global _applog
 
     _applog = logging.getLogger("idaes_fi.fi-db")
@@ -303,6 +402,14 @@ def _setup_logging(vb: int, quiet: bool):
 
 
 def main(args=None):
+    """Entry point for the `fi-db` command-line tool.
+
+    Args:
+        args: Command-line arguments (defaults to `sys.argv` when None).
+
+    Returns:
+        Process exit code: 0 on success, -1 if a command failed.
+    """
     status_code: int = 0
     parser = _build_parser()
     p = parser.parse_args(args=args)
