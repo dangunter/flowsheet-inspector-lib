@@ -47,7 +47,9 @@ class SolverActionBase(Action):
     #: *configures* the solver) as a solve step, which then makes
     #: CaptureSolverOutput redirect stdout around it and left stale capture
     #: state behind.
-    DEFAULT_SOLVE_STEPS = [s for s in BaseFlowsheetRunner.STEPS if s.startswith("solve")]
+    DEFAULT_SOLVE_STEPS = [
+        s for s in BaseFlowsheetRunner.STEPS if s.startswith("solve")
+    ]
 
     def __init__(self, runner: BaseFlowsheetRunner, **kwargs):
         """Initialize solver output capture state.
