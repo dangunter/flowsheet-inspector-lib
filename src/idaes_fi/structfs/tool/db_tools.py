@@ -85,7 +85,11 @@ def _info_fetch(db: ReportDB):
     return info
 
 
-def _info_print(info: Info, stream: IOBase = sys.stdout):
+def _info_print(info: Info, stream: IOBase = None):
+    # resolve stdout at call time, not at import time, so the output stream can
+    # be redirected (e.g. by test capture) after this module is imported
+    if stream is None:
+        stream = sys.stdout
     _print_aligned(
         stream,
         {
