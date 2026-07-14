@@ -709,3 +709,62 @@ def test_step_status_persisted_on_nonsolve_failure(tmp_path):
         # the failed non-solve step is recorded with errcode=1 and its message
         assert by_name["set_scaling"][1] == 1
         assert "scaling blew up" in by_name["set_scaling"][2]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("optimal", [True, False])
+def test_step_status_records_solve_ok(tmp_path, optimal):
+    """Solver failure must be recorded separately from process failure.
+
+    A solve step where the solver finds no solution (e.g. ipopt reports
+    infeasible) returns without raising, so its process status is errcode=0;
+    the `solve_ok` column is what records that the solve itself failed.
+    Non-solve steps must have solve_ok NULL.
+    """
+    from pyomo.opt import SolverResults
+
+    FS = FlowsheetRunner(steps=("build", "solve_initial"))
+    set_tmp_db(FS, tmp_path)
+    # diagnostics cannot run on this deliberately empty flowsheet and would
+    # fail in after_run; it is irrelevant to the status logging under test
+    del FS._actions[ActionNames.DIAGNOSTICS.value]
+
+    @FS.step("build")
+    def build(ctx: Context):
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        ctx.model = m
+
+    @FS.step("solve_initial")
+    def solve_initial(ctx: Context):
+        r = SolverResults()
+        if optimal:
+            r.solver.status = SolverStatus.ok
+            r.solver.termination_condition = TerminationCondition.optimal
+        else:
+            r.solver.status = SolverStatus.warning
+            r.solver.termination_condition = TerminationCondition.infeasible
+        ctx.results = r
+
+    FS.run_steps()
+    assert not FS.failed  # neither step raised, regardless of solver outcome
+
+    tmpdb = FS.get_report_db()
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        cur.execute(f"select id from {tmpdb.RPT_TABLE};")
+        rpt_rows = list(cur.fetchall())
+        assert len(rpt_rows) == 1
+        cur.execute(
+            f"select step_name, errcode, solve_ok from {tmpdb.STAT_TABLE} "
+            f"where run_id = ? order by step_num;",
+            (rpt_rows[0][0],),
+        )
+        by_name = {r[0]: r for r in cur.fetchall()}
+
+    # non-solve step: process ok, no solver status (NULL)
+    assert by_name["build"][1] == 0
+    assert by_name["build"][2] is None
+    # solve step: process ok either way, solve_ok tracks solver termination
+    assert by_name["solve_initial"][1] == 0
+    assert by_name["solve_initial"][2] == (1 if optimal else 0)

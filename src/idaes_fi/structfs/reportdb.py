@@ -24,6 +24,7 @@ import logging
 import sqlite3
 import time
 from contextlib import contextmanager
+from typing import Optional
 
 __author__ = "Dan Gunter (LBNL)"
 
@@ -88,6 +89,10 @@ class ReportDB:
         ("duration", "REAL"),
         ("errcode", "INTEGER"),
         ("errmsg", "TEXT"),
+        # Solver-quality flag, separate from the process status in `errcode`:
+        # NULL = not a solve step (or termination status unknown),
+        # 1 = solver terminated optimally, 0 = it did not (e.g. infeasible).
+        ("solve_ok", "BOOLEAN"),
     )
 
     def __init__(self, filename: str, **target_kw):
@@ -228,6 +233,15 @@ class ReportDB:
             conn.execute(
                 f"CREATE TABLE {exists}{self.STAT_TABLE} ( {', '.join(stat_cols)} );"
             )
+            # forward-migrate an existing status table: CREATE TABLE IF NOT
+            # EXISTS does not add columns introduced after the table was made
+            # (e.g. `solve_ok`), which would break later INSERTs
+            existing_cols = {
+                row[1] for row in conn.execute(f"PRAGMA table_info({self.STAT_TABLE});")
+            }
+            for nm, ty in self.STAT_COL:
+                if nm not in existing_cols:
+                    conn.execute(f"ALTER TABLE {self.STAT_TABLE} ADD COLUMN {nm} {ty};")
             # create new version table (always drop old)
             conn.execute(f"DROP TABLE IF EXISTS {self.VERSION_TABLE};")
             conn.execute(
@@ -344,12 +358,37 @@ class ReportDB:
         duration: float = 0.0,
         errcode: int = 0,
         errmsg: str = "",
+        solve_ok: Optional[bool] = None,
     ):
-        """Add a new record for the status of an executed flowsheet step."""
+        """Add a new record for the status of an executed flowsheet step.
+
+        Args:
+            run_id: Report row this step status belongs to.
+            step_num: Index of the step in the canonical step order.
+            step_name: Name of the step.
+            start: Step start time (Unix timestamp, seconds).
+            duration: Step duration in seconds.
+            errcode: Process status: 0 if the step ran without raising, 1 if
+                it raised an exception.
+            errmsg: Error message if the step failed, else empty string.
+            solve_ok: Solver-quality status, independent of `errcode`:
+                True/False if this was a solve step whose solver did/did not
+                terminate optimally, None (stored as NULL) for non-solve steps
+                or when the termination status is unknown.
+        """
         with self._connect() as conn:
             last_id = -1
             insert_cols = [x[0] for x in self.STAT_COL[1:]]  # get names, skip 'id'
-            colvalues = (run_id, step_num, step_name, start, duration, errcode, errmsg)
+            colvalues = (
+                run_id,
+                step_num,
+                step_name,
+                start,
+                duration,
+                errcode,
+                errmsg,
+                solve_ok,
+            )
             insert_cols_str = ",".join(insert_cols)
             ph = ",".join("?" * len(insert_cols))
             stmt = f"INSERT INTO {self.STAT_TABLE} ({insert_cols_str}) VALUES ({ph})"

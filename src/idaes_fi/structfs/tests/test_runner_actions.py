@@ -23,6 +23,7 @@ from types import SimpleNamespace
 
 import pytest
 from pytest import approx
+from pyomo.opt import SolverResults, SolverStatus, TerminationCondition
 from pyomo.opt.results.container import ScalarData
 
 from .. import runner
@@ -340,6 +341,52 @@ def test_get_solver_results(failed):
         # Check that ScalarData values were copied over
         assert r.values["value"] == added_value.value
         assert r.values["dvalue"] == added_dict.value
+        # fake results are a plain dict, not a Pyomo SolverResults, so the
+        # optimal-termination status is unknown
+        assert rpt.optimal is None
+
+
+def _fake_solver_results(status, condition) -> SolverResults:
+    r = SolverResults()
+    r.solver.status = status
+    r.solver.termination_condition = condition
+    return r
+
+
+@pytest.mark.unit
+def test_get_solver_results_optimal_termination():
+    """The action must distinguish solver failure from process failure: an
+    infeasible solve returns normally (no exception), so only the
+    optimal-termination flag records that the solve failed."""
+    runner = FakeRunner()
+    action = GetSolverResults(runner=runner)
+    solve_step = runner.list_steps()[-1]
+    action.solve_steps = [solve_step]
+
+    # unknown before any solve has run
+    assert action.optimal_termination() is None
+
+    # optimal solve -> True
+    action.before_step(solve_step)
+    runner.results = _fake_solver_results(SolverStatus.ok, TerminationCondition.optimal)
+    action.after_step(solve_step)
+    assert action.optimal_termination() is True
+    assert action.report().optimal is True
+
+    # infeasible solve: no exception raised, but the solve failed -> False
+    action.before_step(solve_step)
+    runner.results = _fake_solver_results(
+        SolverStatus.warning, TerminationCondition.infeasible
+    )
+    action.after_step(solve_step)
+    assert action.optimal_termination() is False
+    assert action.report().optimal is False
+
+    # a solve step that raises never reaches after_step; the flag must be
+    # reset by before_step so the previous solve's value does not leak through
+    action.before_step(solve_step)
+    action.step_failed(solve_step, RuntimeError("solver crashed"))
+    assert action.optimal_termination() is None
 
 
 @pytest.mark.integration

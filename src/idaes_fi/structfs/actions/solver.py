@@ -22,6 +22,7 @@ from io import StringIO
 import sys
 
 from pydantic import BaseModel
+from pyomo.opt import check_optimal_termination
 from pyomo.opt.results.container import ScalarData
 
 from ...compute_diagnostics import (
@@ -169,6 +170,12 @@ class GetSolverResults(SolverActionBase):
         #: this is a list.
         results: list[SolverResult] = []
 
+        #: Whether the most recent solve terminated optimally, per Pyomo's
+        #: `check_optimal_termination`. None means unknown: no solve step ran,
+        #: the step raised before results were stored, or the stored results
+        #: were not a Pyomo SolverResults object.
+        optimal: bool | None = None
+
     def __init__(self, runner: BaseFlowsheetRunner, **kwargs):
         """Constructor.
 
@@ -178,11 +185,36 @@ class GetSolverResults(SolverActionBase):
         """
         super().__init__(runner, **kwargs)
         self._results = []
+        self._optimal: bool | None = None
+
+    def before_step(self, step_name: str) -> None:
+        """Reset the optimal-termination flag before each solve step.
+
+        Without this reset, a solve step that raises (so `after_step` never
+        runs) would leave `_optimal` holding the value from a *previous* solve
+        step, and the runner would log that stale value for the failed step.
+
+        Args:
+            step_name: Name of the step about to run.
+        """
+        if self.is_solve_step(step_name):
+            self._optimal = None
 
     def after_step(self, step_name: str):
         """Action performed after the step."""
         if self.is_solve_step(step_name):
             self._extract_results()
+
+    def optimal_termination(self) -> bool | None:
+        """Whether the most recent solve step terminated optimally.
+
+        Returns:
+            True/False per Pyomo's `check_optimal_termination` on the results
+            of the most recent solve step, or None if unknown (no solve has
+            run, the solve step failed before storing results, or the stored
+            results object was not a Pyomo SolverResults).
+        """
+        return self._optimal
 
     @staticmethod
     def _sval(v):
@@ -198,7 +230,18 @@ class GetSolverResults(SolverActionBase):
 
         if r is None:
             self._results = []
+            self._optimal = None
             return
+
+        # Solver quality is separate from process success: an infeasible ipopt
+        # run returns normally, so only this flag records that the solve
+        # "failed". check_optimal_termination needs a real Pyomo SolverResults;
+        # anything else (empty dict before any solve, test doubles) is
+        # "unknown" rather than an error.
+        try:
+            self._optimal = bool(check_optimal_termination(r))
+        except (AttributeError, KeyError, TypeError):
+            self._optimal = None
 
         # extract Pyomo dict of lists into a list of SolverResult objs
         # eg {"Solver": [{...}, ], "Problem": [{...},]} ->
@@ -260,7 +303,7 @@ class GetSolverResults(SolverActionBase):
         Returns:
             GetSolverResult.Report
         """
-        return self.Report(results=self._results)
+        return self.Report(results=self._results, optimal=self._optimal)
 
 
 class Diagnostics(SolverActionBase):

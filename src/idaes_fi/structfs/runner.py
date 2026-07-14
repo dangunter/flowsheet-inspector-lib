@@ -433,7 +433,10 @@ class Runner:
                     step_end_t = time.time()
                     ok = not bool(self._failed)
                     errmsg = "" if ok else str(self._failed[1])
-                    self._log_step(i, step.name, step_begin_t, step_end_t, ok, errmsg)
+                    solve_ok = self._solve_status(step.name)
+                    self._log_step(
+                        i, step.name, step_begin_t, step_end_t, ok, errmsg, solve_ok
+                    )
                 if self._failed:
                     break  # stop
 
@@ -454,6 +457,36 @@ class Runner:
                         self._actions_failed[where] = err
                     continue  # allow all after_run actions, only record first failure
 
+    def _solve_status(self, step_name: str) -> Optional[bool]:
+        """Solver-quality status of a step, distinct from process success.
+
+        A solve step where the solver finds no solution (e.g. ipopt reports
+        infeasible) returns normally, so the process status alone would show
+        it as successful. This asks the registered actions whether `step_name`
+        is a solve step and, if so, whether the solve terminated optimally.
+
+        The lookup is duck-typed (`is_solve_step` + `optimal_termination`)
+        rather than an isinstance check against `GetSolverResults`, because
+        importing that action here would be circular (actions import fsrunner,
+        which imports this module).
+
+        Args:
+            step_name: Name of the step that just ran.
+
+        Returns:
+            True/False if a solver-results action classifies this as a solve
+            step and knows the termination status; None if this is not a solve
+            step, no such action is registered, or the status is unknown
+            (e.g. the step raised before the solver stored results).
+        """
+        for action in self._actions.values():
+            is_solve = getattr(action, "is_solve_step", None)
+            optimal = getattr(action, "optimal_termination", None)
+            if callable(is_solve) and callable(optimal) and is_solve(step_name):
+                result = optimal()
+                return None if result is None else bool(result)
+        return None
+
     def _log_step(
         self,
         step_num: int,
@@ -462,6 +495,7 @@ class Runner:
         end_t: float,
         ok: bool,
         errmsg: str,
+        solve_ok: Optional[bool] = None,
     ):
         """Record the outcome of a single step in the report DB `status` table.
 
@@ -472,8 +506,11 @@ class Runner:
             step_name: Name of the step.
             begin_t: Step start time (Unix timestamp, seconds).
             end_t: Step end time (Unix timestamp, seconds).
-            ok: Whether the step succeeded.
+            ok: Whether the step succeeded (no exception raised).
             errmsg: Error message if the step failed, else empty string.
+            solve_ok: Solver-quality status from :meth:`_solve_status` —
+                True/False for optimal/non-optimal termination of a solve
+                step, None for non-solve steps or unknown.
         """
         if self._save_report_flag:
             self._report_db.add_status(
@@ -484,6 +521,7 @@ class Runner:
                 duration=(end_t - begin_t),
                 errcode=0 if ok else 1,
                 errmsg=errmsg,
+                solve_ok=solve_ok,
             )
         if ok:
             self._last_run_steps.append(step_name)
