@@ -55,8 +55,11 @@ class ReportDB:
     """
 
     # for DB versioning
+    # bump MINOR for backward-compatible schema changes (e.g. added tables or
+    # columns), MAJOR for incompatible ones (dropped/retyped columns, changed
+    # relationships)
     MAJOR_VERSION = 1
-    MINOR_VERSION = 0
+    MINOR_VERSION = 1  # 1.1: added `status` table and its `solve_ok` column
     VERSION_TABLE = "version"
 
     RPT_TABLE = "reports"
