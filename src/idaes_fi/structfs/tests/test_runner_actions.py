@@ -18,10 +18,12 @@
 
 # stdlib
 import pprint
+import sys
 from types import SimpleNamespace
 
 import pytest
 from pytest import approx
+from pyomo.opt import SolverResults, SolverStatus, TerminationCondition
 from pyomo.opt.results.container import ScalarData
 
 from .. import runner
@@ -240,6 +242,51 @@ def test_capture_solver_output(failed):
 
 
 @pytest.mark.unit
+def test_capture_solver_output_nonsolve_fail_after_solve():
+    """Regression: a non-solve step failing *after* a solve step has already
+    run and restored stdout must not raise from `step_failed`.
+
+    Previously `after_step` left `_save_stdout` set while clearing
+    `_solver_out`, so a later `step_failed` hit `None.flush()` -> AttributeError,
+    which escaped the step wrapper and aborted the whole run (losing the failed
+    step's status row and the report).
+    """
+    runner = FakeRunner()
+    action = CaptureSolverOutput(runner=runner)
+    steps = runner.list_steps()  # ["step1", "step2", "step3"]
+    solve_step = steps[1]
+    action.solve_steps = [solve_step]
+
+    save_stdout = sys.stdout
+    action.before_run()
+    # step1: non-solve, ok
+    action.before_step(steps[0])
+    action.after_step(steps[0])
+    # step2: solve, ok -> captures then restores stdout
+    action.before_step(solve_step)
+    print("solver chatter")
+    action.after_step(solve_step)
+    # step3: non-solve, fails after the solve step already ran -> must NOT raise
+    action.before_step(steps[2])
+    action.step_failed(steps[2], AssertionError("boom"))
+    action.after_run()
+
+    # stdout was properly restored and the solve output was still captured
+    assert sys.stdout is save_stdout
+    assert action.report().output[solve_step].strip() == "solver chatter"
+
+
+@pytest.mark.unit
+def test_is_solve_step_excludes_set_solver():
+    """Regression: `set_solver` (configures the solver) must not be treated as a
+    solve step just because its name contains the substring 'solve'."""
+    action = CaptureSolverOutput(runner=FakeRunner())
+    assert not action.is_solve_step("set_solver")
+    assert action.is_solve_step("solve_initial")
+    assert action.is_solve_step("solve_optimization")
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("failed", [False, True])
 def test_get_solver_results(failed):
     runner = FakeRunner()
@@ -294,6 +341,52 @@ def test_get_solver_results(failed):
         # Check that ScalarData values were copied over
         assert r.values["value"] == added_value.value
         assert r.values["dvalue"] == added_dict.value
+        # fake results are a plain dict, not a Pyomo SolverResults, so the
+        # optimal-termination status is unknown
+        assert rpt.optimal is None
+
+
+def _fake_solver_results(status, condition) -> SolverResults:
+    r = SolverResults()
+    r.solver.status = status
+    r.solver.termination_condition = condition
+    return r
+
+
+@pytest.mark.unit
+def test_get_solver_results_optimal_termination():
+    """The action must distinguish solver failure from process failure: an
+    infeasible solve returns normally (no exception), so only the
+    optimal-termination flag records that the solve failed."""
+    runner = FakeRunner()
+    action = GetSolverResults(runner=runner)
+    solve_step = runner.list_steps()[-1]
+    action.solve_steps = [solve_step]
+
+    # unknown before any solve has run
+    assert action.optimal_termination() is None
+
+    # optimal solve -> True
+    action.before_step(solve_step)
+    runner.results = _fake_solver_results(SolverStatus.ok, TerminationCondition.optimal)
+    action.after_step(solve_step)
+    assert action.optimal_termination() is True
+    assert action.report().optimal is True
+
+    # infeasible solve: no exception raised, but the solve failed -> False
+    action.before_step(solve_step)
+    runner.results = _fake_solver_results(
+        SolverStatus.warning, TerminationCondition.infeasible
+    )
+    action.after_step(solve_step)
+    assert action.optimal_termination() is False
+    assert action.report().optimal is False
+
+    # a solve step that raises never reaches after_step; the flag must be
+    # reset by before_step so the previous solve's value does not leak through
+    action.before_step(solve_step)
+    action.step_failed(solve_step, RuntimeError("solver crashed"))
+    assert action.optimal_termination() is None
 
 
 @pytest.mark.integration

@@ -270,7 +270,7 @@ def test_flowsheet_runner_run_steps(runnerclass):
     if runnerclass is FlowsheetRunner:
         for sugar in ("build", "solve_initial"):
             calls.clear()
-            getattr(runner, sugar)()
+            getattr(runner, sugar)(save_report=False)
         runner.show_diagram()
 
 
@@ -318,13 +318,13 @@ def test_with_no_connectivity(empty_fsrunner):
 )
 def test_set_solver_baseflowsheetrunner_init(solver_name, solver_opts):
     runner = BaseFlowsheetRunner(solver=solver_name, solver_options=solver_opts)
-    runner.run_steps()
+    runner.run_steps(save_report=False)
 
 
 def test_no_solver_baseflowsheetrunner(empty_fsrunner_build_only):
     runner = empty_fsrunner_build_only
 
-    runner.run_steps()
+    runner.run_steps(save_report=False)
 
 
 ## Testing the run_flowsheet() function
@@ -566,7 +566,7 @@ def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
         sdb = sqlite3.connect(db_file)
         sdb.execute("CREATE TABLE reports (foo varchar);")
         sdb.commit()
-        expect_out, expect_err = "no such column", None
+        expect_out, expect_err = "no column", None
     elif mischief == "no_table":
         # create empty database
         sdb = sqlite3.connect(db_file)
@@ -623,3 +623,148 @@ def test__find_wrapped_main():
     fake_module = SimpleNamespace(fi_main=True, __name__="fake_module")
     result = fsrunner._find_wrapped_main(fake_module)
     assert result is None
+
+
+@pytest.mark.integration
+def test_run_step_status(tmp_path):
+    from .demo_flowsheet_structured import FS
+    import json
+
+    set_tmp_db(FS, tmp_path)
+    FS.run_steps()
+    tmpdb = FS.get_report_db()
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        cur.execute(f"select id from {tmpdb.RPT_TABLE};")
+        rows = list(cur.fetchall())
+        assert len(rows) == 1
+        rptid = rows[0][0]
+        cur.execute(
+            f"select step_num, step_name, errcode, errmsg, start, duration from {tmpdb.STAT_TABLE} "
+            f"where run_id = ?;",
+            (rptid,),
+        )
+        rows = list(cur.fetchall())
+        steplist = FS.get_defined_steps()
+        assert len(rows) == len(steplist)
+        for i, name in enumerate(steplist):
+            print(f"check row {i}: {rows[i]}")
+            assert rows[i][1] == name
+            assert rows[i][2] == 0
+            assert rows[i][3] == ""
+
+
+@pytest.mark.integration
+def test_step_status_persisted_on_nonsolve_failure(tmp_path):
+    """Regression: a non-solve step failing after a solve step already ran must
+    not crash the run; the failed step's status row and the report must persist.
+
+    Self-contained on purpose: does NOT depend on any demo flowsheet actually
+    converging. The bug was an AttributeError in CaptureSolverOutput.step_failed
+    that escaped the step wrapper, aborting `_run_steps` before the failed step's
+    status row (`_log_step`) or the report (`_save_report`) were written.
+    """
+    FS = FlowsheetRunner(steps=("build", "solve_initial", "set_scaling"))
+    set_tmp_db(FS, tmp_path)
+
+    @FS.step("build")
+    def build(ctx: Context):
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        ctx.model = m
+
+    @FS.step("solve_initial")  # a real solve step: stdout capture activates here
+    def solve_initial(ctx: Context):
+        print("pretend solver output")
+
+    @FS.step("set_scaling")  # non-solve step that fails AFTER the solve step
+    def set_scaling(ctx: Context):
+        raise RuntimeError("scaling blew up")
+
+    # must not raise (previously an AttributeError aborted the whole run)
+    FS.run_steps()
+    assert FS.failed
+
+    tmpdb = FS.get_report_db()
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        # the report row was saved (not aborted) and marked as a failed run
+        cur.execute(f"select id, length(report), run_status from {tmpdb.RPT_TABLE};")
+        rpt_rows = list(cur.fetchall())
+        assert len(rpt_rows) == 1
+        rptid, rpt_len, run_status = rpt_rows[0]
+        assert rpt_len > 2  # report BLOB is not the empty "{}" (length 2)
+        assert run_status == 0  # run recorded as failed
+
+        # every step, including the failed one, has a status row
+        cur.execute(
+            f"select step_name, errcode, errmsg from {tmpdb.STAT_TABLE} "
+            f"where run_id = ? order by step_num;",
+            (rptid,),
+        )
+        by_name = {r[0]: r for r in cur.fetchall()}
+        assert set(by_name) == {"build", "solve_initial", "set_scaling"}
+        assert by_name["build"][1] == 0
+        assert by_name["solve_initial"][1] == 0
+        # the failed non-solve step is recorded with errcode=1 and its message
+        assert by_name["set_scaling"][1] == 1
+        assert "scaling blew up" in by_name["set_scaling"][2]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("optimal", [True, False])
+def test_step_status_records_solve_ok(tmp_path, optimal):
+    """Solver failure must be recorded separately from process failure.
+
+    A solve step where the solver finds no solution (e.g. ipopt reports
+    infeasible) returns without raising, so its process status is errcode=0;
+    the `solve_ok` column is what records that the solve itself failed.
+    Non-solve steps must have solve_ok NULL.
+    """
+    from pyomo.opt import SolverResults
+
+    FS = FlowsheetRunner(steps=("build", "solve_initial"))
+    set_tmp_db(FS, tmp_path)
+    # diagnostics cannot run on this deliberately empty flowsheet and would
+    # fail in after_run; it is irrelevant to the status logging under test
+    del FS._actions[ActionNames.DIAGNOSTICS.value]
+
+    @FS.step("build")
+    def build(ctx: Context):
+        m = ConcreteModel()
+        m.fs = FlowsheetBlock(dynamic=False)
+        ctx.model = m
+
+    @FS.step("solve_initial")
+    def solve_initial(ctx: Context):
+        r = SolverResults()
+        if optimal:
+            r.solver.status = SolverStatus.ok
+            r.solver.termination_condition = TerminationCondition.optimal
+        else:
+            r.solver.status = SolverStatus.warning
+            r.solver.termination_condition = TerminationCondition.infeasible
+        ctx.results = r
+
+    FS.run_steps()
+    assert not FS.failed  # neither step raised, regardless of solver outcome
+
+    tmpdb = FS.get_report_db()
+    with tmpdb._connect() as conn:
+        cur = conn.cursor()
+        cur.execute(f"select id from {tmpdb.RPT_TABLE};")
+        rpt_rows = list(cur.fetchall())
+        assert len(rpt_rows) == 1
+        cur.execute(
+            f"select step_name, errcode, solve_ok from {tmpdb.STAT_TABLE} "
+            f"where run_id = ? order by step_num;",
+            (rpt_rows[0][0],),
+        )
+        by_name = {r[0]: r for r in cur.fetchall()}
+
+    # non-solve step: process ok, no solver status (NULL)
+    assert by_name["build"][1] == 0
+    assert by_name["build"][2] is None
+    # solve step: process ok either way, solve_ok tracks solver termination
+    assert by_name["solve_initial"][1] == 0
+    assert by_name["solve_initial"][2] == (1 if optimal else 0)
