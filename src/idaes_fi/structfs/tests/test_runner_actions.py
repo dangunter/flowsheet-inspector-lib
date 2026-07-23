@@ -23,6 +23,8 @@ from types import SimpleNamespace
 
 import pytest
 from pytest import approx
+from pyomo.environ import ConcreteModel, Var
+from pyomo.environ import units as pyunits
 from pyomo.opt import SolverResults, SolverStatus, TerminationCondition
 from pyomo.opt.results.container import ScalarData
 
@@ -428,3 +430,27 @@ def test_unit_model_report_bad_perf():
     action._dof = False  # avoids calls involving `comp`
     print("> get report")
     action._get_report(comp)
+
+
+@pytest.mark.unit
+def test_unit_model_report_uninitialized_var():
+    """Regression: right after `build`, variables may have no value yet
+    (e.g. REEOxalateRoaster.flow_mol_comp_product in the PrOMMiS CMI
+    flowsheet); the report must record None instead of raising ValueError
+    and aborting the whole run."""
+    m = ConcreteModel()
+    m.x = Var(units=pyunits.mol / pyunits.s)  # no initial value
+
+    action = UnitModelReport(FakeRunner())
+    action._dof = False
+    comp = SimpleNamespace(
+        _get_performance_contents=lambda time_point: {
+            "vars": {"X": m.x},
+            "exprs": {"2X": 2 * m.x},
+        }
+    )
+    rpt = action._get_report(comp)
+    for section, key in (("vars", "X"), ("exprs", "2X")):
+        entry = rpt.performance[section][key]
+        assert entry["value"] is None
+        assert "mol" in entry["units"]

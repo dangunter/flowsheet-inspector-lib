@@ -660,25 +660,42 @@ class Runner:
         """
         return cls.STEP_ANY if not s else s.lower()
 
+    def _run_action_hook(self, hook_name: str, *args: object) -> None:
+        """Invoke a step-level hook on every registered action, containing failures.
+
+        Actions observe the run; an exception raised by one action's step hook
+        is logged and recorded in `failed_actions`, but it stops neither the
+        steps nor the other actions (matching how `after_run` failures are
+        handled). Without this, a single failing action would abort the run
+        before any step status could be recorded.
+
+        Args:
+            hook_name: Name of the Action method to call
+                       (e.g. "before_step", "after_step")
+            args: Arguments passed to the hook method
+        """
+        for action_name, action in self._actions.items():
+            try:
+                getattr(action, hook_name)(*args)
+            except Exception as err:  # pylint: disable=W0703
+                where = f"{action_name}.{hook_name}"
+                _log.error(f"{where} failed (run continues): {err}")
+                self._actions_failed[where] = err
+
     def _step_begin(self, name: str):
-        for action in self._actions.values():
-            action.before_step(name)
+        self._run_action_hook("before_step", name)
 
     def _substep_begin(self, base: str, name: str):
-        for action in self._actions.values():
-            action.before_substep(base, name)
+        self._run_action_hook("before_substep", base, name)
 
     def _step_end(self, name: str):
-        for action in self._actions.values():
-            action.after_step(name)
+        self._run_action_hook("after_step", name)
 
     def _substep_end(self, base: str, name: str):
-        for action in self._actions.values():
-            action.after_substep(base, name)
+        self._run_action_hook("after_substep", base, name)
 
     def _step_failed(self, name: str, err: Exception):
-        for action in self._actions.values():
-            action.step_failed(name, err)
+        self._run_action_hook("step_failed", name, err)
 
     def step(self, name: str):
         """Decorator function for creating a new step.

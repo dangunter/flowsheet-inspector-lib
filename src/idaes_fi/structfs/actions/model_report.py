@@ -24,6 +24,8 @@ from enum import Enum
 import logging
 
 # IDAES and Pyomo
+from pyomo.environ import units as pyunits
+from pyomo.environ import value as pyomo_value
 from idaes.core.util.units_of_measurement import report_quantity
 from idaes.core.util.model_statistics import (
     number_activated_blocks,
@@ -195,6 +197,28 @@ class UnitModelReport(Action):
             comp, "_get_performance_contents"
         )
 
+    def _quantity(self, v: object) -> tuple[object, str]:
+        """Get the value and units of a quantity, tolerating unset variables.
+
+        This action runs after *every* step, including steps (like `build`)
+        after which variables may legitimately have no value yet; evaluating
+        such a variable (or an expression over one) raises ValueError.
+
+        Args:
+            v: Pyomo variable, expression, or parameter
+
+        Returns:
+            Tuple of (value, units string); value is None if `v` cannot
+            be evaluated because a variable in it has no value.
+        """
+        # `exception=False` quietly returns None for unset variables, avoiding
+        # both the raised ValueError and Pyomo's error logging on evaluation
+        if pyomo_value(v, exception=False) is None:
+            self.log.debug(f"No value for uninitialized quantity {v}")
+            return None, str(pyunits.get_units(v))
+        q = report_quantity(v)
+        return q.m, str(q.u)
+
     def _get_report(self, comp):
         self.log.debug("begin _get_report()")
         time_point = 0.0
@@ -237,22 +261,23 @@ class UnitModelReport(Action):
                 if debug:
                     self.log.debug(f"section {section} for {comp.name}")
                 for k, v in performance_section.items():
+                    value, units = self._quantity(v)
                     if section == "vars":
                         d = {
-                            "value": report_quantity(v).m,
-                            "units": str(report_quantity(v).u),
+                            "value": value,
+                            "units": units,
                             "fixed": v.fixed,
                             "bounds": v.bounds,
                         }
                     elif section == "exprs":
                         d = {
-                            "value": report_quantity(v).m,
-                            "units": str(report_quantity(v).u),
+                            "value": value,
+                            "units": units,
                         }
                     elif section == "params":
                         d = {
-                            "value": report_quantity(v).m,
-                            "units": str(report_quantity(v).u),
+                            "value": value,
+                            "units": units,
                             "mutable": not v.is_constant(),
                         }
                     else:
@@ -264,11 +289,12 @@ class UnitModelReport(Action):
             rpt.performance = performance
 
         # Get stream table
+        # ValueError: stream table evaluation can also hit uninitialized variables
         try:
             stream_table = comp._get_stream_table_contents(time_point=time_point)
             stream_dict = stream_table.to_dict()
             stream_dict["Units"] = {k: str(v) for k, v in stream_dict["Units"].items()}
-        except (AttributeError, ConfigurationError):
+        except (AttributeError, ConfigurationError, ValueError):
             stream_dict = {}
         rpt.stream_table = stream_dict
 
