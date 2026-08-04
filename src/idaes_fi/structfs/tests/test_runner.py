@@ -232,3 +232,47 @@ def test_runner_report_with_model_and_dict_actions(tmp_path):
 def test_action_default_report_returns_none():
     action = DelegatingAction(simple)
     assert action.report() is None
+
+
+class ExplodingAction(Action):
+    """Action whose step hooks raise, to test failure containment."""
+
+    def before_step(self, step_name):
+        raise RuntimeError("boom in before_step")
+
+    def after_step(self, step_name):
+        raise ValueError("boom in after_step")
+
+    def report(self) -> dict:
+        return {"exploded": True}
+
+
+@pytest.mark.unit
+def test_action_step_hook_failure_does_not_stop_run(tmp_path):
+    """Regression: an action raising in `before_step`/`after_step` must not
+    abort the run. Previously the exception escaped the step wrapper and
+    killed `run_steps` before any step status was recorded."""
+    rn = Runner(("a", "b"))
+    rn.set_report_db(dbfile=tmp_path / "test_runner_boom.sqlite")
+    calls = []
+
+    @rn.step("a")
+    def step_a(ctx):
+        calls.append("a")
+
+    @rn.step("b")
+    def step_b(ctx):
+        calls.append("b")
+
+    rn.add_action("boom", ExplodingAction)
+    rn.add_action("healthy", RunActionExample)
+    rn.run_steps()
+
+    # both steps ran and the run itself is not failed
+    assert calls == ["a", "b"]
+    assert not rn.failed
+    assert rn._last_run_steps == ["a", "b"]
+    # the action failures were recorded, and other actions still work
+    assert isinstance(rn.failed_actions["boom.before_step"], RuntimeError)
+    assert isinstance(rn.failed_actions["boom.after_step"], ValueError)
+    assert rn.get_action("healthy").report() == {"example": True}
