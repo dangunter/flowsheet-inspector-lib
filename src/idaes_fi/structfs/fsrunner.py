@@ -148,10 +148,22 @@ class BaseFlowsheetRunner(Runner):
         tee=True,
         solver_options: dict | None = None,
         steps: Sequence[str] = None,
+        allow_user_steps: bool = False,
         **target_kw,
     ):
+        """Constructor
+
+        Args:
+            solver: Pyomo solver to use, or string name of solver
+            tee: If True, echo solver output to stdout
+            solver_options: Options to pass to the solver
+            steps: List of step names to run. If None, use default STEPS.
+            allow_user_steps: If True, allow steps not in Steps.index
+            target_kw: Keyword arguments to set the report target (e.g., module, filename, filedir, hash)
+        """
         if steps is None:
             steps = self.STEPS
+        self.set_step_order(steps)
         self.build_step = steps[0]
         self._solver, self._tee = solver, tee
         self._solver_options = solver_options or {}
@@ -173,6 +185,22 @@ class BaseFlowsheetRunner(Runner):
         for _, action in self._actions.items():
             if hasattr(action, "solve_steps"):
                 action.solve_steps = solve_steps
+
+    def set_step_order(self, steps: Sequence[str]):
+        """Set the order of steps to run.
+
+        Args:
+            steps: List of step names
+
+        Raises:
+            KeyError: If a step name is not in Steps and allow_user_steps is False.
+        """
+        if not self.allow_user_steps:
+            for step in steps:
+                if step not in Steps.index:
+                    raise KeyError(f"Unknown step: {step}. To allow user-defined steps, set allow_user_steps=True.")
+        super().set_step_order(steps)
+
 
     def run_steps(
         self,

@@ -768,3 +768,24 @@ def test_step_status_records_solve_ok(tmp_path, optimal):
     # solve step: process ok either way, solve_ok tracks solver termination
     assert by_name["solve_initial"][1] == 0
     assert by_name["solve_initial"][2] == (1 if optimal else 0)
+
+@pytest.mark.unit
+def test_change_step_order():
+    rn = FlowsheetRunner(steps=("a", "b", "c"))
+    calls = []
+
+    @rn.step("a")
+    def step_a(ctx):
+        calls.append("a")
+
+    @rn.step("b")
+    def step_b(ctx):
+        calls.append("b")
+
+    @rn.step("c")
+    def step_c(ctx):
+        calls.append("c")
+
+    rn.set_step_order(["c", "b", "a"])
+    rn.run_steps()
+    assert calls == ["c", "b", "a"]

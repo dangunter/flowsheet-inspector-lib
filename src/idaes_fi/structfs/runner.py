@@ -86,13 +86,26 @@ class Runner:
         """
         self._context = {}
         self._actions: dict[str, ActionType] = {}
-        self._step_names = list(steps)
+        self._step_names_from_source = False
+        self.set_step_order(steps)
         self._steps: dict[str, Step] = {}
         self._failed = False
         self._actions_failed = {}
         self.reset()
         self._tags = ""  # for reporting
         self._report_db = report_db or self.get_default_report_db(create=True)
+
+    def set_step_order(self, steps: Sequence[str]):
+        """Set the order of steps to run.
+
+        Args:
+            steps: List of step names
+        """
+        self._step_names = list(steps)
+
+    def reset_step_order(self):
+        """Reset the order of steps to the default order defined in Steps."""
+        self._step_names = list(Steps.index)
 
     @property
     def failed(self) -> bool:
@@ -227,11 +240,17 @@ class Runner:
             func: Function to execute for the step.
 
         Raises:
-            KeyError: _description_
+            KeyError: If a duplicate step is added, or the step is 
+                      not in the list of known steps (if step order is not from source)
         """
         step_name = self.normalize_name(name)
 
-        if step_name not in self._step_names:
+        if self.step_order_from_source:
+            if step_name in self._step_names:
+                raise KeyError(f"Duplicate step: {step_name}")
+            
+            self._step_names.append(step_name)
+        elif step_name not in self._step_names:
             steppenlist = ", ".join(self._step_names)
             raise KeyError(f"Unknown step: {step_name} not in: {steppenlist}")
         self._steps[step_name] = Step(step_name, func)
