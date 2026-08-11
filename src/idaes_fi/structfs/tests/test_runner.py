@@ -276,3 +276,4 @@ def test_action_step_hook_failure_does_not_stop_run(tmp_path):
     assert isinstance(rn.failed_actions["boom.before_step"], RuntimeError)
     assert isinstance(rn.failed_actions["boom.after_step"], ValueError)
     assert rn.get_action("healthy").report() == {"example": True}
+
