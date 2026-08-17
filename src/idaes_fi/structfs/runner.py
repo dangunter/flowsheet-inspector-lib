@@ -28,6 +28,7 @@ from typing import Callable, Optional, Tuple, Sequence, TypeVar
 
 # third party
 from pydantic import BaseModel
+import sqlite3
 
 # package
 from idaes.config import get_data_directory
@@ -44,7 +45,7 @@ _log = logging.getLogger(__name__)
 class Step:
     """Step to run by the `Runner`."""
 
-    SEP = "::"  # when printing out step::substep
+    SEP = "::"  # when printing out step::label
 
     def __init__(self, name: str, func: Callable):
         """Constructor
@@ -55,17 +56,7 @@ class Step:
         """
         self.name: str = name
         self.func: Callable = func
-        self.substeps: list[Tuple[str, Callable]] = []
-
-    def add_substep(self, name: str, func: Callable):
-        """Add a sub-step to this step.
-        Substeps are run in the order given.
-
-        Args:
-            name: The name of substep
-            func: Function to call to execute this substep
-        """
-        self.substeps.append((name, func))
+        self.labels: list[str] = []
 
 
 # Python 3.9-compatible forward reference
@@ -153,7 +144,10 @@ class Runner:
                 raise ValueError(
                     f"Database file `{dbfile}` does not exist and `create` flag is False"
                 )
-            db = ReportDB(dbfile).create(exist_ok=True)
+            try:
+                db = ReportDB(dbfile).create(exist_ok=True)
+            except sqlite3.Error as err:
+                raise DBError(err)
 
         # first, test that DB is valid
         assert isinstance(db, ReportDB)
@@ -246,34 +240,29 @@ class Runner:
             raise KeyError(f"Unknown step: '{step_name}' not in: {steppenlist}")
         self._steps[step_name] = Step(step_name, func)
 
-    def add_substep(self, base_name, name, func):
-        """Add a substep for a given step.
+    def add_label(self, base_name, name):
+        """Add a label for a given step.
 
-        Substeps are all executed, in the order added,
+        labels are all executed, in the order added,
         immediately after their base step is executed.
 
         Args:
             base_name: Step name
             name: Substep name
-            func: Function to execute
 
         Raises:
-            KeyError: Base step or substep is not found
-            ValueError: Base step does not have any substeps
+            KeyError: Base step or label is not found
+            ValueError: Base step does not have any labels
         """
-        substep_name = self.normalize_name(name)
+        label_name = self.normalize_name(name)
         base_step_name = self.normalize_name(base_name)
         if base_step_name not in self._step_names:
-            raise KeyError(
-                f"Unknown base step {base_step_name} for substep {substep_name}"
-            )
+            raise KeyError(f"Unknown step {base_step_name} for label {label_name}")
         try:
             step = self._steps[base_step_name]
         except KeyError:
-            raise ValueError(
-                f"Empty base step {base_step_name} for substep {substep_name}"
-            )
-        step.add_substep(substep_name, func)
+            raise ValueError(f"Empty step {base_step_name} for label {label_name}")
+        step.labels.append(label_name)
 
     def run_step(self, name, **kwargs):
         """Syntactic sugar for calling `run_steps` for a single step."""
@@ -695,14 +684,14 @@ class Runner:
     def _step_begin(self, name: str):
         self._run_action_hook("before_step", name)
 
-    def _substep_begin(self, base: str, name: str):
-        self._run_action_hook("before_substep", base, name)
+    def _label_begin(self, base: str, name: str):
+        self._run_action_hook("before_label", base, name)
 
     def _step_end(self, name: str):
         self._run_action_hook("after_step", name)
 
-    def _substep_end(self, base: str, name: str):
-        self._run_action_hook("after_substep", base, name)
+    def _label_end(self, base: str, name: str):
+        self._run_action_hook("after_label", base, name)
 
     def _step_failed(self, name: str, err: Exception):
         self._run_action_hook("step_failed", name, err)
@@ -739,8 +728,8 @@ class Runner:
 
         return step_decorator
 
-    def substep(self, base: str, name: str):
-        """Decorator function for creating a new substep.
+    def label(self, base: str, name: str):
+        """Decorator function for creating a new label.
 
         Substeps are not run directly, and must have an already
         existing base step as their parent.
@@ -756,19 +745,11 @@ class Runner:
         def step_decorator(func):
 
             def wrapper(*args, **kwargs):
-                self._substep_begin(base, name)
-                ok, run_err = True, None
-                try:
-                    result = func(*args, **kwargs)
-                except Exception as err:
-                    ok, result, run_err = False, None, err
-                if ok:
-                    self._substep_end(base, name)
-                else:
-                    self._failed = (base + "." + name, run_err)
-                return result
+                self._label_begin(base, name)
+                return func(*args, **kwargs)
+                self._label_end(base, name)
 
-            self.add_substep(base, name, wrapper)
+            self.add_label(base, name)
 
             return wrapper
 

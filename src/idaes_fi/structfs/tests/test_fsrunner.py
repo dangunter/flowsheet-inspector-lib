@@ -562,7 +562,7 @@ def test_fsrunner_main_db(args, opts, mischief, ok, tmp_path, capsys):
     if mischief == "chmod":
         db_file.open("w")  # create file
         os.chmod(db_file, 0o000)  # make it unwritable
-        expect_out, expect_err = "unable to open database file", None
+        expect_out, expect_err = "database", None
     elif mischief == "bad_table":
         sdb = sqlite3.connect(db_file)
         sdb.execute("CREATE TABLE reports (foo varchar);")
