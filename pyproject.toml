@@ -25,7 +25,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "idaes-pse @ git+https://github.com/IDAES/idaes-pse@main",
+    "idaes-pse >= 2.12",
     "pyomo >=6.9.5",
 ]
 
