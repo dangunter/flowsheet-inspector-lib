@@ -131,8 +131,8 @@ class BaseFlowsheetRunner(Runner):
     STEPS = (
         Steps.build,
         Steps.set_solver,
-        Steps.initialize,
         Steps.set_operating_conditions,
+        Steps.initialize,
         Steps.set_scaling,
         Steps.solve_initial,
         Steps.set_autoscaling,
