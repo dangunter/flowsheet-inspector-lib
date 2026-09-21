@@ -8,6 +8,7 @@ from idaes_fi.structfs.tests.demo_flowsheet import *
 import pytest
 
 _stages = []
+_solver_name = "couenne"
 
 ##############################
 # Create a wrapped flowsheet #
@@ -46,7 +47,7 @@ def solve_initial(ctx):
 
 @FS.step(Steps.set_solver)
 def set_solver(ctx):
-    ctx.solver = get_solver("couenne")
+    ctx.solver = get_solver(_solver_name)
     _stages.append(Steps.set_solver)
 
 
@@ -64,12 +65,16 @@ def runner_solve_flowsheet(ctx):
 @pytest.mark.integration
 def test_solver_action():
     """Test the solver action."""
-    FS.run_steps(first=Steps.build, last=Steps.solve_optimization)
-    assert set(_stages) == {
-        Steps.build,
-        Steps.set_operating_conditions,
-        Steps.set_scaling,
-        Steps.solve_initial,
-        Steps.set_solver,
-        Steps.solve_optimization,
-    }
+    global _solver_name
+
+    for name in "couenne", "doesnotexistandneverwill":
+        _solver_name = name
+        FS.run_steps(first=Steps.build, last=Steps.solve_optimization)
+        assert set(_stages) == {
+            Steps.build,
+            Steps.set_operating_conditions,
+            Steps.set_scaling,
+            Steps.solve_initial,
+            Steps.set_solver,
+            Steps.solve_optimization,
+        }
