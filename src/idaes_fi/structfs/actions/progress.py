@@ -4,7 +4,9 @@ Action to report progress of a flowsheet run.
 
 # stdlib
 from enum import Enum
+import os
 import time
+import traceback
 
 # package
 from ..action_base import Action
@@ -27,7 +29,7 @@ class Progress(Action):
     class Report(BaseModel):
         """Stream table, where each row is a variable and each column is a stream."""
 
-        steps: dict[str, dict[str, str | float]]  # one dict per step
+        steps: dict[str, dict[str, object]]  # one dict per step
 
     def __init__(self, runner, **kwargs):
         super().__init__(runner, **kwargs)
@@ -49,12 +51,18 @@ class Progress(Action):
         record["status"] = Status.COMPLETED.value
         record["duration"] = time.time() - self._time[step_name]
 
-    def step_failed(self, step_name: str, error: str):
+    def step_failed(self, step_name: str, error: Exception):
         """Record progress after a step fails."""
         record = self._progress[step_name]
         record["status"] = Status.FAILED.value
         record["duration"] = time.time() - self._time[step_name]
         record["error"] = str(error)
+        record["traceback"] = self._format_tb(error)
+        record["environment"] = os.environ.copy()
+
+    def _format_tb(self, e: Exception) -> str:
+        tb_list = traceback.format_tb(e.__traceback__)
+        return tb_list
 
     def report(self) -> Report:
         return self.Report(steps=self._progress)

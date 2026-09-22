@@ -32,7 +32,7 @@ from types import FunctionType
 from typing import Sequence
 
 # third-party
-from pyomo.environ import ConcreteModel, SolverFactory
+from pyomo.environ import ConcreteModel, SolverFactory, UnknownSolver
 from pyomo.environ import units as pyunits
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
@@ -84,6 +84,10 @@ class Context(dict):
     @solver.setter
     def solver(self, value):
         """The solver used to solve the model."""
+        if isinstance(value, str):
+            value = SolverFactory(value)
+            if isinstance(value, UnknownSolver):
+                raise ValueError(f"Unknown solver: {value}")
         self["solver"] = value
 
     def solve(self):
