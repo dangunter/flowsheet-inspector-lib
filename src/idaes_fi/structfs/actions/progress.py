@@ -56,7 +56,7 @@ class Progress(Action):
     """Action to track the progress of a run."""
 
     class Report(BaseModel):
-        """Stream table, where each row is a variable and each column is a stream."""
+        """Report for the progress of a run."""
 
         steps: list[StepInfo]
 

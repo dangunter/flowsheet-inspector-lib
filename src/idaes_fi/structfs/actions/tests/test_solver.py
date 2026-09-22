@@ -3,6 +3,7 @@ Test for the solver action.
 """
 
 from idaes_fi.structfs import FlowsheetRunner, Steps
+from idaes_fi.structfs.common import ActionNames
 from idaes_fi.structfs.tests.demo_flowsheet import *
 
 import pytest
@@ -72,7 +73,10 @@ def test_solver_action(solver_name):
         if step["status"] == "failed":
             # couenne doesn't solve the optimization
             if _solver_name == "couenne" and name == Steps.solve_optimization:
-                pass
+                solver_output = actions[ActionNames.SOLVER_OUTPUT.value]["output"]
+                print(f"Solver output:\n{solver_output}")
+                print(f"Step error: {step['err']}")
+                assert "Couenne" in solver_output[name]
             # only build step is OK for the bad solver
             elif _solver_name == "doesnotexistandneverwill" and name != Steps.build:
                 pass
