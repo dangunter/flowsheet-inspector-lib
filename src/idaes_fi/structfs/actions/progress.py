@@ -1,5 +1,22 @@
 """
 Action to report progress of a flowsheet run.
+
+This will add to the output report, under the key associated
+with the action ("progress"), a list of steps.
+
+```
+"steps": [
+    {
+        "name": <step-name>,
+        "status": <running|completed|failed>,
+        "start": <timestamp>,
+        "dur": <duration in seconds>,
+        "err": <error message if failed>,
+        "tb": <traceback if failed>,
+        "env": <environment variables if failed>
+    },
+]
+```
 """
 
 # stdlib
