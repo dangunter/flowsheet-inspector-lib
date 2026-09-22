@@ -66,17 +66,19 @@ def test_solver_action(solver_name):
 
     FS.run_steps()
     actions = FS.report()["actions"]
-    for step, value in actions["progress"]["steps"].items():
-        if value["status"] == "failed":
+    for step in actions["progress"]["steps"]:
+        name = step["name"]
+        print(f"examine {solver_name} step {name}: {step['status']}")
+        if step["status"] == "failed":
             # couenne doesn't solve the optimization
-            if _solver_name == "couenne" and step == Steps.solve_optimization:
+            if _solver_name == "couenne" and name == Steps.solve_optimization:
                 pass
             # only build step is OK for the bad solver
-            elif _solver_name == "doesnotexistandneverwill" and step != Steps.build:
+            elif _solver_name == "doesnotexistandneverwill" and name != Steps.build:
                 pass
             # ipopt should solve everything
             elif _solver_name == "ipopt":
-                print(f"Step failed: {step}: {value}")
+                print(f"Step failed: {name}: {step['err']}")
                 assert False
             # guard against unexpected values
             else:
