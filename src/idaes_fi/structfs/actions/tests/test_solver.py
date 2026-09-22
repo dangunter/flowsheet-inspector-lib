@@ -70,6 +70,11 @@ def test_solver_action():
     for name in "couenne", "doesnotexistandneverwill":
         _solver_name = name
         FS.run_steps(first=Steps.build, last=Steps.solve_optimization)
+        actions = FS.report()["actions"]
+        for step, value in actions["progress"]["steps"].items():
+            if value["status"] == "failed":
+                print(f"Step failed: {step}: {value['error']}")
+                assert False
         assert set(_stages) == {
             Steps.build,
             Steps.set_operating_conditions,

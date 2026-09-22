@@ -37,6 +37,8 @@ from pyomo.environ import units as pyunits
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
 
+from idaes_fi.structfs.actions.progress import Progress
+
 try:
     from idaes_connectivity import Connectivity
     from idaes_connectivity.jupyter import display_connectivity
@@ -352,6 +354,7 @@ class FlowsheetRunner(BaseFlowsheetRunner):
             StreamTable,
             UnitDofChecker,
             UnitModelReport,
+            Progress,
         )
 
         super().__init__(**kwargs)
@@ -371,6 +374,7 @@ class FlowsheetRunner(BaseFlowsheetRunner):
         self.add_action(ActionNames.STREAM_TABLE.value, StreamTable)
         self.add_action(ActionNames.TIMINGS.value, Timer)
         self.add_action(ActionNames.GIT_HASH.value, GitHash, caller_file)
+        self.add_action(ActionNames.PROGRESS.value, Progress)
 
     def build(self, **kwargs):
         """Run just the build step"""
