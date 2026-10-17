@@ -24,7 +24,7 @@ import logging
 import sqlite3
 import time
 from contextlib import contextmanager
-from typing import Optional
+from typing import Optional, Union
 
 __author__ = "Dan Gunter (LBNL)"
 
@@ -34,7 +34,7 @@ _log = logging.getLogger(__name__)
 class DBError(Exception):
     """General container for database exceptions"""
 
-    def __init__(self, err: Exception):
+    def __init__(self, err: Union[Exception, str]):
         super().__init__(f"Error in database operation: {err}")
 
 

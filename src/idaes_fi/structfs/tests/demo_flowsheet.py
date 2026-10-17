@@ -501,7 +501,7 @@ def display_results(m):
     m.fs.F03.liq_outlet.display()
 
 
-if __name__ == "__main__":
+def orig_main():
     m = build_flowsheet()
 
     set_scaling(m)
@@ -515,3 +515,30 @@ if __name__ == "__main__":
     solve_flowsheet(m, solver, stee=True)
 
     display_results(m)
+
+
+def fs_main(runner):
+    runner.step_begin(Steps.build)
+    runner.model = m = build_flowsheet()
+
+    runner.step_begin(Steps.set_scaling)
+    set_scaling(m)
+    runner.step_end()
+
+    set_dof(m)
+
+    runner.step_begin(Steps.initialize)
+    initialize_flowsheet(m)
+
+    runner.step_begin(Steps.set_solver)
+    solver = get_solver()
+
+    runner.step_begin(Steps.solve_optimization)
+    solve_flowsheet(m, solver, stee=True)
+
+
+if __name__ == "__main__":
+    from idaes_fi.structfs.api import FlowsheetRunner, Steps
+
+    runner = FlowsheetRunner(report_db=False)
+    runner.run_flowsheet(fs_main)

@@ -51,6 +51,7 @@ class Action(ABC):
             log = self._get_logger()
         self.log = log
         self._dbg = self.log.isEnabledFor(logging.DEBUG)
+        self._name = self.__class__.__name__
 
     def _get_logger(self):
         name = f"{__name__}.{self.__class__.__name__}"
@@ -65,6 +66,10 @@ class Action(ABC):
             )
             action_log.addHandler(handler)
         return action_log
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def before_step(self, step_name: str):
         """Perform this action before the named step.

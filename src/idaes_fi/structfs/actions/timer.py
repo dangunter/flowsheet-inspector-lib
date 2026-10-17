@@ -47,12 +47,9 @@ class Timer(Action):
             run_times: List of timings for a run (sequence of steps)
         """
         super().__init__(runner, **kwargs)
-        self._step_order = runner.list_steps()
-        # initialize all step times to -1
-        self.step_times: dict[str, float] = {step: -1 for step in self._step_order}
+        self.step_times: dict[str, float] = {}
         self.run_time: float = -1
-        # initialize internal variables
-        self._run_begin, self._step_begin = None, {}
+        self._step_begin = {}
 
     def before_step(self, step_name):
         """Record the start time for a step.
@@ -73,14 +70,12 @@ class Timer(Action):
         if t0 is None:
             self.log.warning(f"Timer: step '{step_name}' end without begin")
         else:
-            self._cur_step_times[step_name] = t1 - t0
+            self.step_times[step_name] = t1 - t0
             self._step_begin[step_name] = None
 
     def before_run(self):
         """Initialize timer state before a run starts."""
         self._run_begin = time.time()
-        self._cur_step_times = {}
-        self._step_begin = {}
 
     def after_run(self):
         """Finalize run timing data after a run completes."""
@@ -93,11 +88,6 @@ class Timer(Action):
         else:
             self.run_time = t1 - self._run_begin
             self._run_begin = None
-
-        # set all step times
-        self.step_times = {
-            step: self._cur_step_times.get(step, -1) for step in self._step_order
-        }
 
     def report(self) -> Report:
         """Report the timings.

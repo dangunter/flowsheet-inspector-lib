@@ -33,26 +33,13 @@ from ...compute_diagnostics import (
     StructuralIssuesData,
 )
 from ..action_base import Action
-from ..fsrunner import BaseFlowsheetRunner
+from idaes_fi.structfs.api import FlowsheetRunner
 
 
 class SolverActionBase(Action):
     """Base class for actions to get solver state, output, etc."""
 
-    #: By default, consider any step whose name *starts with* 'solve' to
-    #: be a solver step. This can be overridden by setting :attr:`solve_steps`
-    #: to some other list of step names.
-    #:
-    #: Note: the match is a prefix, not a substring, on purpose. A substring
-    #: match ("solve" in name) wrongly classifies ``set_solver`` (which merely
-    #: *configures* the solver) as a solve step, which then makes
-    #: CaptureSolverOutput redirect stdout around it and left stale capture
-    #: state behind.
-    DEFAULT_SOLVE_STEPS = [
-        s for s in BaseFlowsheetRunner.STEPS if s.startswith("solve")
-    ]
-
-    def __init__(self, runner: BaseFlowsheetRunner, **kwargs):
+    def __init__(self, runner: FlowsheetRunner, **kwargs):
         """Initialize solver output capture state.
 
         Args:
@@ -60,17 +47,6 @@ class SolverActionBase(Action):
             **kwargs: Additional keyword arguments passed to `Action`.
         """
         super().__init__(runner, **kwargs)
-        self._solve_steps = self.DEFAULT_SOLVE_STEPS
-
-    @property
-    def solve_steps(self) -> list[str]:
-        """Get list of solve steps"""
-        return self._solve_steps.copy()
-
-    @solve_steps.setter
-    def solve_steps(self, value: list[str]):
-        """Set new list of solve steps"""
-        self._solve_steps = value
 
     def is_solve_step(self, name: str) -> bool:
         """Whether step `name` is the solve step.
@@ -81,7 +57,9 @@ class SolverActionBase(Action):
         Returns:
             True if it is the solve step, otherwise False
         """
-        return name in self._solve_steps
+        if name.startswith("solve_"):
+            return True
+        return False
 
 
 class CaptureSolverOutput(SolverActionBase):
@@ -97,7 +75,7 @@ class CaptureSolverOutput(SolverActionBase):
         """Constructor
 
         Args:
-            runner: BaseFlowsheetRunner object
+            runner: FlowsheetRunner object
             kwargs: Arguments passed through to superclass
         """
         super().__init__(runner, **kwargs)
@@ -111,7 +89,9 @@ class CaptureSolverOutput(SolverActionBase):
         """Action performed before the step."""
         if self.is_solve_step(step_name):
             self._solver_out = StringIO()
-            self._save_stdout, sys.stdout = sys.stdout, self._solver_out
+            sys.stdout.flush()
+            self._save_stdout = sys.stdout
+            sys.stdout = self._solver_out
 
     def after_step(self, step_name: str):
         """Action performed after the step."""
@@ -119,9 +99,11 @@ class CaptureSolverOutput(SolverActionBase):
 
     def _restore_stdout(self, step_name: str):
         if self._solver_out is not None:
-            self._logs[step_name] = self._solver_out.getvalue()
-            self._solver_out = None
+            sys.stdout.flush()
             sys.stdout = self._save_stdout
+            captured_out = self._solver_out.getvalue()
+            self._logs[step_name] = captured_out
+            self._solver_out = None
             # Clear the saved stdout too, so a later non-solve step that fails
             # does not see a stale `_save_stdout` and try to flush the
             # already-None `_solver_out` (which would raise and abort the run).
@@ -171,7 +153,7 @@ class GetSolverResults(SolverActionBase):
         #: were not a Pyomo SolverResults object.
         optimal: bool | None = None
 
-    def __init__(self, runner: BaseFlowsheetRunner, **kwargs):
+    def __init__(self, runner: FlowsheetRunner, **kwargs):
         """Constructor.
 
         Args:

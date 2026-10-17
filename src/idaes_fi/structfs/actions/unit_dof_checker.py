@@ -26,9 +26,9 @@ from pydantic import BaseModel, Field
 from pyomo.network.port import ScalarPort
 
 from ..action_base import Action
-from ..fsrunner import BaseFlowsheetRunner
+from idaes_fi.structfs.api import FlowsheetRunner
 
-# Hold degrees of freedom for one BaseFlowsheetRunner 'step'
+# Hold degrees of freedom for one FlowsheetRunner 'step'
 # {key=component: value=dof}
 UnitDofType = dict[str, int]
 
@@ -60,7 +60,7 @@ class UnitDofChecker(Action):
 
     def __init__(
         self,
-        runner: BaseFlowsheetRunner,
+        runner: FlowsheetRunner,
         flowsheet: str,
         steps: Union[str, list[str]],
         step_func: Optional[Callable[[str, UnitDofType], None]] = None,
@@ -101,10 +101,10 @@ class UnitDofChecker(Action):
         Args:
             step_name: Name of the step that just completed.
         """
-        step_name = self._runner.normalize_name(step_name)
-        if step_name not in self._steps:
-            self.log.debug(f"Do not check DoF for step: {step_name}")
-            return
+        # step_name = self._runner.normalize_name(step_name)
+        # if step_name not in self._steps:
+        #     self.log.debug(f"Do not check DoF for step: {step_name}")
+        #     return
 
         try:
             fs = self._get_flowsheet()

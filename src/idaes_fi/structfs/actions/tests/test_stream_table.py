@@ -5,7 +5,7 @@ Tests for stream table action
 import pytest
 
 from .. import stream_table as ST
-from idaes_fi.structfs.fsrunner import BaseFlowsheetRunner, FlowsheetRunner
+from idaes_fi.structfs.api import FlowsheetRunner, FlowsheetRunner
 
 
 @pytest.mark.unit
@@ -17,12 +17,12 @@ def test_smoke():
     with pytest.raises(Exception):
         obj = ST.StreamTable(runner="runner")
     # should succeed with correct runner obj
-    obj = ST.StreamTable(runner=BaseFlowsheetRunner())
+    obj = ST.StreamTable(runner=FlowsheetRunner())
 
 
 @pytest.mark.unit
 def test_report_empty():
-    obj = ST.StreamTable(runner=BaseFlowsheetRunner())
+    obj = ST.StreamTable(runner=FlowsheetRunner())
     report = obj.report()
     assert report.index == []
     assert report.units == []
@@ -33,7 +33,7 @@ def test_report_empty():
 @pytest.mark.unit
 def test_report_none_data():
     # set up a stream table with some None values in the data
-    obj = ST.StreamTable(runner=BaseFlowsheetRunner())
+    obj = ST.StreamTable(runner=FlowsheetRunner())
     obj._stream_table = {
         "columns": ["stream1", "stream2", "stream3"],
         "index": ["var1", "var2"],
@@ -63,7 +63,7 @@ def test_full_stream_names():
     from pyomo.network import Arc
 
     # create a flowsheet
-    runner = BaseFlowsheetRunner()
+    runner = FlowsheetRunner()
     runner._context.model = build_flowsheet()
 
     # generate stream table report

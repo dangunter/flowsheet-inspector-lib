@@ -18,51 +18,24 @@
 
 """Runner action implementations."""
 
-from importlib import import_module
+from .git_hash import GitHash
+from .mermaid_diagram import MermaidDiagram
+from .model_report import UnitModelReport
+from .model_variables import ModelVariables
+from .stream_table import StreamTable
+from .solver import CaptureSolverOutput, Diagnostics, GetSolverResults
+from .timer import Timer
+from .unit_dof_checker import UnitDofChecker
 
 __all__ = [
-    "CaptureSolverOutput",
-    "Diagnostics",
-    "GitHash",
-    "GetSolverResults",
-    "MermaidDiagram",
-    "ModelVariables",
-    "SolverActionBase",
-    "SolverResult",
-    "StreamTable",
-    "Timer",
-    "UnitDofChecker",
-    "UnitDofType",
-    "UnitModelReport",
-    "Progress",
+    GitHash,
+    MermaidDiagram,
+    UnitModelReport,
+    ModelVariables,
+    StreamTable,
+    CaptureSolverOutput,
+    Diagnostics,
+    GetSolverResults,
+    Timer,
+    UnitDofChecker,
 ]
-
-_EXPORT_MODULES = {
-    "CaptureSolverOutput": "solver",
-    "Diagnostics": "solver",
-    "GitHash": "git_hash",
-    "GetSolverResults": "solver",
-    "MermaidDiagram": "mermaid_diagram",
-    "ModelVariables": "model_variables",
-    "SolverActionBase": "solver",
-    "SolverResult": "solver",
-    "StreamTable": "stream_table",
-    "Timer": "timer",
-    "UnitDofChecker": "unit_dof_checker",
-    "UnitDofType": "unit_dof_checker",
-    "UnitModelReport": "model_report",
-    "Progress": "progress",
-}
-
-
-# Lazy-load allows you to not install dependencies
-# for actions that you never import and use
-def __getattr__(name):
-    try:
-        module_name = _EXPORT_MODULES[name]
-    except KeyError as err:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from err
-    module = import_module(f".{module_name}", __name__)
-    value = getattr(module, name)
-    globals()[name] = value
-    return value

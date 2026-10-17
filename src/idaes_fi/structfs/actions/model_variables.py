@@ -27,7 +27,7 @@ from pyomo.core.base.var import IndexedVar
 from pyomo.network.port import Port
 
 from ..action_base import Action
-from ..fsrunner import BaseFlowsheetRunner
+from idaes_fi.structfs.api import FlowsheetRunner
 
 
 class ModelVariables(Action):
@@ -49,7 +49,6 @@ class ModelVariables(Action):
             runner: Flowsheet runner that owns this action.
             **kwargs: Additional keyword arguments passed to `Action`.
         """
-        assert isinstance(runner, BaseFlowsheetRunner)  # makes no sense otherwise
         super().__init__(runner, **kwargs)
         self._vars = {}
         self._port_vars = {}

@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from pyomo.network import Arc
 
 from ..action_base import Action
-from ..fsrunner import BaseFlowsheetRunner
+from idaes_fi.structfs.api import FlowsheetRunner
 
 
 class StreamTable(Action):
@@ -39,7 +39,7 @@ class StreamTable(Action):
         data: list[list[tuple[float | None, str | None]]]
 
     def __init__(self, runner, **kwargs):
-        assert isinstance(runner, BaseFlowsheetRunner)  # makes no sense otherwise
+        assert isinstance(runner, FlowsheetRunner)  # makes no sense otherwise
         super().__init__(runner, **kwargs)
         self._stream_table = {}
 

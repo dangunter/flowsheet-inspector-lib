@@ -2,7 +2,7 @@
 Test for the solver action.
 """
 
-from idaes_fi.structfs import FlowsheetRunner, Steps
+from idaes_fi.structfs.api import FlowsheetRunner, Steps
 from idaes_fi.structfs.common import ActionNames
 from idaes_fi.structfs.tests.demo_flowsheet import *
 
@@ -21,32 +21,32 @@ FS = FlowsheetRunner(
 )
 
 
-@FS.step(Steps.build)
+@FS.add_step(Steps.build)
 def build(ctx):
     ctx.model = build_flowsheet()
 
 
-@FS.step(Steps.set_operating_conditions)
+@FS.add_step(Steps.set_operating_conditions)
 def set_operating_conditions(ctx):
     set_dof(ctx.model)
 
 
-@FS.step(Steps.set_scaling)
+@FS.add_step(Steps.set_scaling)
 def runner_set_scaling(ctx):
     set_scaling(ctx.model)
 
 
-@FS.step(Steps.solve_initial)
+@FS.add_step(Steps.solve_initial)
 def solve_initial(ctx):
     initialize_flowsheet(ctx.model)
 
 
-@FS.step(Steps.set_solver)
+@FS.add_step(Steps.set_solver)
 def set_solver(ctx):
     ctx.solver = _solver_name
 
 
-@FS.step(Steps.solve_optimization)
+@FS.add_step(Steps.solve_optimization)
 def runner_solve_flowsheet(ctx):
     ctx.results = solve_flowsheet(ctx.model, ctx.solver, stee=True)
 
