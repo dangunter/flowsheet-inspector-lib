@@ -1,8 +1,27 @@
+######################################################################################################
+# Process Optimization and Modeling for Minerals Sustainability (PrOMMiS) Copyright (c) 2023-2026
+#
+# “Process Optimization and Modeling for Minerals Sustainability (PrOMMiS)” was produced under the DOE
+# Process Optimization and Modeling for Minerals Sustainability (“PrOMMiS”) initiative, and is
+# copyrighted by the software owners: The Regents of the University of California, through Lawrence
+# Berkeley National Laboratory, National Technology & Engineering Solutions of Sandia, LLC through
+# Sandia National Laboratories, Carnegie Mellon University, University of Notre Dame, and West
+# Virginia University Research Corporation.
+#
+# NOTICE. This Software was developed under funding from the U.S. Department of Energy and the
+# U.S. Government consequently retains certain rights. As such, the U.S. Government has been granted
+# for itself and others acting on its behalf a paid-up, nonexclusive, irrevocable, worldwide license
+# in the Software to reproduce, distribute copies to the public, prepare derivative works, and perform
+# publicly and display publicly, and to permit other to do so.
+#
+######################################################################################################
+
 """
-New API
+Main API for using IDAES-PSE flowsheets with the Flowsheet Inspector.
 """
 
 # stdlib
+from abc import ABC, abstractmethod
 import inspect
 import json
 from pathlib import Path
@@ -14,7 +33,7 @@ from typing import Optional
 import sqlite3
 from pydantic import BaseModel
 
-# idaes
+# idaes-pse
 from idaes.config import get_data_directory
 from idaes.logger import getIdaesLogger
 
@@ -23,9 +42,36 @@ from .reportdb import ReportDB, DBError
 from .action_base import Action
 from .common import Steps
 
+__author__ = "Dan Gunter (LBNL)"
 
-class FlowsheetRunner:
-    """Flowsheet runner.
+
+class FlowsheetRunnerInterface(ABC):
+    """Abstract (cannot be instantiated) interface for the
+    FlowsheetRunner class. For use of the Null object design
+    pattern; see NullFlowsheetRunner class.
+    """
+
+    @property
+    @abstractmethod
+    def report_db_file(self) -> Path:
+        pass
+
+    @abstractmethod
+    def run_flowsheet(self, fn, *args, **kwargs) -> object:
+        pass
+
+    @abstractmethod
+    def step_begin(self, name: str):
+        pass
+
+    @abstractmethod
+    def step_end(self):
+        pass
+
+
+class FlowsheetRunner(FlowsheetRunnerInterface):
+    """Create an instance of this class to use your flowsheet with the
+    Flowsheet Inspector.
 
     Attributes:
         model: Flowsheet model (provided by caller)
@@ -78,7 +124,6 @@ class FlowsheetRunner:
             StreamTable,
             CaptureSolverOutput,
             Diagnostics,
-            GetSolverResults,
             Timer,
             UnitDofChecker,
         )
@@ -234,6 +279,29 @@ class FlowsheetRunner:
         for name, output in solver_out.items():
             print(f"--- {name} ---\n{output}\n--- End ({name}) ---")
         # json.dump(report, sys.stdout, indent=2)
+
+
+class NullFlowsheetRunner(FlowsheetRunnerInterface):
+    """Abstract (cannot be instantiated) interface for the
+    FlowsheetRunner class. For use of the Null object design
+    pattern; see NullFlowsheetRunner class.
+    """
+
+    @property
+    def report_db_file(self) -> Path:
+        return Path()
+
+    def run_flowsheet(self, fn, *args, **kwargs) -> object:
+        return fn(self, *args, **kwargs)
+
+    def step_begin(self, name: str):
+        pass
+
+    def step_end(self):
+        pass
+
+
+## report db helper functions
 
 
 def init_report_db() -> ReportDB:

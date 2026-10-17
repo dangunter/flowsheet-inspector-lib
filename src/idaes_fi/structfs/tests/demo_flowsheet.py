@@ -501,23 +501,7 @@ def display_results(m):
     m.fs.F03.liq_outlet.display()
 
 
-def orig_main():
-    m = build_flowsheet()
-
-    set_scaling(m)
-
-    set_dof(m)
-
-    initialize_flowsheet(m)
-
-    solver = get_solver()
-
-    solve_flowsheet(m, solver, stee=True)
-
-    display_results(m)
-
-
-def fs_main(runner):
+def main(runner):
     runner.step_begin(Steps.build)
     runner.model = m = build_flowsheet()
 
@@ -536,9 +520,33 @@ def fs_main(runner):
     runner.step_begin(Steps.solve_optimization)
     solve_flowsheet(m, solver, stee=True)
 
+    return m
+
 
 if __name__ == "__main__":
-    from idaes_fi.structfs.api import FlowsheetRunner, Steps
+    from idaes_fi.structfs.api import FlowsheetRunner, NullFlowsheetRunner, Steps
+    import argparse
 
-    runner = FlowsheetRunner(report_db=False)
-    runner.run_flowsheet(fs_main)
+    p = argparse.ArgumentParser()
+    p.add_argument(
+        "--fi",
+        action="store_true",
+        help="Wrap for use in the Flowsheet Inspector VSCode extension",
+    )
+    p.add_argument(
+        "--nodb",
+        action="store_true",
+        help="Do not put results in Flowsheet Inspector DB. "
+        "This does nothing if `--fi` is not also given.",
+    )
+    args = p.parse_args()
+
+    if args.fi:
+        report_db = not args.nodb
+        runner = FlowsheetRunner(report_db=report_db)
+    else:
+        runner = NullFlowsheetRunner()
+
+    m = runner.run_flowsheet(main)
+    print("\n\nRESULTS\n")
+    display_results(m)
