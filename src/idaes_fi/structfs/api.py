@@ -23,11 +23,14 @@ Main API for using IDAES-PSE flowsheets with the Flowsheet Inspector.
 # stdlib
 from abc import ABC, abstractmethod
 import inspect
-import json
+import importlib
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 import sys
+import time
 import traceback
-from typing import Optional
+from types import ModuleType
+from typing import Callable, Optional
 
 # ext
 import sqlite3
@@ -45,19 +48,9 @@ from .common import Steps
 __author__ = "Dan Gunter (LBNL)"
 
 
-class FlowsheetRunnerInterface(ABC):
-    """Abstract (cannot be instantiated) interface for the
-    FlowsheetRunner class. For use of the Null object design
-    pattern; see NullFlowsheetRunner class.
-    """
-
-    @property
+class _FlowsheetRunnerInterface(ABC):
     @abstractmethod
-    def report_db_file(self) -> Path:
-        pass
-
-    @abstractmethod
-    def run_flowsheet(self, fn, *args, **kwargs) -> object:
+    def run_flowsheet(self, *args, **kwargs) -> object:
         pass
 
     @abstractmethod
@@ -68,15 +61,45 @@ class FlowsheetRunnerInterface(ABC):
     def step_end(self):
         pass
 
+    @abstractmethod
+    def _get_main(self) -> Optional[Callable]:
+        pass
 
-class FlowsheetRunner(FlowsheetRunnerInterface):
-    """Create an instance of this class to use your flowsheet with the
-    Flowsheet Inspector.
+    @abstractmethod
+    def _set_main(self, fn: Optional[Callable]):
+        pass
 
-    Attributes:
-        model: Flowsheet model (provided by caller)
-        actions: List of actions to invoke at step begin/end (provided by class)
-    """
+    main = property(_get_main, _set_main)
+
+    @abstractmethod
+    def _get_report_db_file(self) -> Path:
+        pass
+
+    report_db_file = property(_get_report_db_file, None)
+
+    @abstractmethod
+    def _get_model(self) -> object:
+        pass
+
+    @abstractmethod
+    def _set_model(self, m: object):
+        pass
+
+    model = property(_get_model, _set_model)
+
+    @abstractmethod
+    def _get_steps(self) -> list[str]:
+        pass
+
+    @abstractmethod
+    def _set_steps(self, s: list[str]):
+        pass
+
+    steps = property(_get_steps, _set_steps)
+
+
+class FlowsheetRunner(_FlowsheetRunnerInterface):
+    """For using your flowsheet with the Flowsheet Inspector."""
 
     def __init__(
         self,
@@ -100,8 +123,10 @@ class FlowsheetRunner(FlowsheetRunnerInterface):
         else:
             self._report_db = init_report_db()
             self._report_id = None
-        self.model = None
         self._fs_name = flowsheet_name
+        self._model = None
+        self._steps = None
+        self._main = None
 
         caller = inspect.currentframe().f_back
         self._caller_file = caller.f_globals.get("__file__") if caller else None
@@ -111,9 +136,42 @@ class FlowsheetRunner(FlowsheetRunnerInterface):
 
         self._completed_steps = []
 
-    @property
-    def report_db_file(self) -> Path:
+    def _get_report_db_file(self) -> Path:
         return Path(self._report_db.filename)
+
+    #: Get report database file path
+    report_db_file = property(_get_report_db_file, None)
+
+    def _get_model(self) -> object:
+        return self._model
+
+    def _set_model(self, m: object):
+        self._model = m
+
+    #: Get/set the model
+    model = property(_get_model, _set_model)
+
+    def _get_steps(self) -> list[str]:
+        if self._steps is None:
+            return []
+        return self._steps
+
+    def _set_steps(self, s: list[str]):
+        self._steps = s
+
+    # Get/set the list of steps
+    steps = property(_get_steps, _set_steps)
+
+    def _get_main(self) -> Optional[Callable]:
+        return self._main
+
+    def _set_main(self, fn: Optional[Callable]):
+        if fn is not None and not callable(fn):
+            raise TypeError("main must be callable or None")
+        self._main = fn
+
+    # Get/set the main flowsheet function
+    main = property(_get_main, _set_main)
 
     def _default_actions(self) -> list[Action]:
         from .actions import (
@@ -146,11 +204,11 @@ class FlowsheetRunner(FlowsheetRunnerInterface):
             )
         ]
 
-    def run_flowsheet(self, fn, *args, **kwargs) -> object:
-        """Call this with the main entry point of the
-        flowsheet, along with any associated arguments.
-        This allows capture of errors during execution.
-        """
+    def run_flowsheet(self, *args, **kwargs) -> object:
+        """Run the flowsheet, passing arguments to function provided as `main`."""
+        if self._main is None:
+            raise ValueError("Must set .main function before calling run_flowsheet")
+
         self._current_step = None
         self._log("begin")
 
@@ -163,7 +221,7 @@ class FlowsheetRunner(FlowsheetRunnerInterface):
 
         try:
             run_error, result = None, None
-            result = fn(self, *args, **kwargs)
+            result = self._main(self, *args, **kwargs)
         except Exception as err:
             print(f"Exception! run_error={err}")
             self._log("end", error=err)
@@ -281,15 +339,11 @@ class FlowsheetRunner(FlowsheetRunnerInterface):
         # json.dump(report, sys.stdout, indent=2)
 
 
-class NullFlowsheetRunner(FlowsheetRunnerInterface):
+class NullFlowsheetRunner(_FlowsheetRunnerInterface):
     """Abstract (cannot be instantiated) interface for the
     FlowsheetRunner class. For use of the Null object design
     pattern; see NullFlowsheetRunner class.
     """
-
-    @property
-    def report_db_file(self) -> Path:
-        return Path()
 
     def run_flowsheet(self, fn, *args, **kwargs) -> object:
         return fn(self, *args, **kwargs)
@@ -299,6 +353,32 @@ class NullFlowsheetRunner(FlowsheetRunnerInterface):
 
     def step_end(self):
         pass
+
+    def _get_main(self) -> Optional[Callable]:
+        return None
+
+    def _set_main(self, fn: Optional[Callable]):
+        pass
+
+    def _get_report_db_file(self) -> Path:
+        return Path()
+
+    def _get_model(self) -> object:
+        return None
+
+    def _set_model(self, m: object):
+        pass
+
+    def _get_steps(self) -> list[str]:
+        return []
+
+    def _set_steps(self, s: list[str]):
+        pass
+
+    report_db_file = property(_get_report_db_file, None)
+    model = property(_get_model, _set_model)
+    steps = property(_get_steps, _set_steps)
+    main = property(_get_main, _set_main)
 
 
 ## report db helper functions
@@ -339,3 +419,48 @@ def get_report_db_path() -> Path:
     """Compute and return the default path to the report database."""
     data_dir, _, _ = get_data_directory()
     return Path(data_dir)
+
+
+def get_module_flowsheet_runners(m: ModuleType) -> dict[str, _FlowsheetRunnerInterface]:
+    """Get list of variables in a module that are FlowsheetRunner-s."""
+    result = {}
+    for key in dir(m):
+        v = m[key]
+        if issubclass(v, _FlowsheetRunnerInterface):
+            result[key] = v
+    return result
+
+
+def load_module(name, path):
+    if name:
+        module = importlib.import_module(name)
+    else:
+        path = Path(path).resolve()
+        name = path.stem
+        spec = spec_from_file_location(name, path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load module from {path}")
+        module = module_from_spec(spec)
+        spec.loader.exec_module(module)
+    return module
+
+
+def run_flowsheet(
+    module_name: Optional[str] = None,
+    path: Optional[Path] = None,
+    flowsheet_name: Optional[str] = "FS",
+):
+    """Run specified flowsheet (or only one) in specified module."""
+    module = load_module(module_name, path)
+    runners = get_module_flowsheet_runners(module)
+    if len(runners) == 0:
+        raise ValueError(f"No FlowsheetRunner-s found in module '{module.__name__}'")
+    if len(runners) == 1:
+        runner = list(runners.values())[0]
+    else:
+        runner = runners.get(flowsheet_name, None)
+        if runner is None:
+            raise KeyError(
+                f"No flowsheet '{flowsheet_name}' in module '{module.__name__}'"
+            )
+    return runner.run_flowsheet()

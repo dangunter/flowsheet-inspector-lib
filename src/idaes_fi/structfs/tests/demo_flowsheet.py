@@ -37,6 +37,17 @@ from idaes.models.unit_models import Mixer, Heater, Flash
 
 import idaes.logger as idaeslog
 
+from idaes_fi.structfs.api import FlowsheetRunner, Steps
+
+runner = FlowsheetRunner()
+runner.steps = [
+    Steps.build,
+    Steps.set_scaling,
+    Steps.initialize,
+    Steps.set_solver,
+    Steps.solve_optimization,
+]
+
 
 def build_flowsheet():
     """Build demo flowsheet"""
@@ -523,30 +534,7 @@ def main(runner):
     return m
 
 
+runner.main = main
+
 if __name__ == "__main__":
-    from idaes_fi.structfs.api import FlowsheetRunner, NullFlowsheetRunner, Steps
-    import argparse
-
-    p = argparse.ArgumentParser()
-    p.add_argument(
-        "--fi",
-        action="store_true",
-        help="Wrap for use in the Flowsheet Inspector VSCode extension",
-    )
-    p.add_argument(
-        "--nodb",
-        action="store_true",
-        help="Do not put results in Flowsheet Inspector DB. "
-        "This does nothing if `--fi` is not also given.",
-    )
-    args = p.parse_args()
-
-    if args.fi:
-        report_db = not args.nodb
-        runner = FlowsheetRunner(report_db=report_db)
-    else:
-        runner = NullFlowsheetRunner()
-
-    m = runner.run_flowsheet(main)
-    print("\n\nRESULTS\n")
-    display_results(m)
+    runner.run_flowsheet()
