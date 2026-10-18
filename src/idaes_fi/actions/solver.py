@@ -25,7 +25,7 @@ from pydantic import BaseModel
 from pyomo.opt import check_optimal_termination
 from pyomo.opt.results.container import ScalarData
 
-from ...compute_diagnostics import (
+from ..compute_diagnostics import (
     ComponentList,
     DiagnosticsData,
     DiagnosticsError,
@@ -33,7 +33,7 @@ from ...compute_diagnostics import (
     StructuralIssuesData,
 )
 from ..action_base import Action
-from idaes_fi.structfs.api import FlowsheetRunner
+from idaes_fi import FlowsheetRunner
 
 
 class SolverActionBase(Action):

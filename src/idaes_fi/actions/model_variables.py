@@ -27,7 +27,7 @@ from pyomo.core.base.var import IndexedVar
 from pyomo.network.port import Port
 
 from ..action_base import Action
-from idaes_fi.structfs.api import FlowsheetRunner
+from idaes_fi import FlowsheetRunner
 
 
 class ModelVariables(Action):

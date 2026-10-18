@@ -37,9 +37,9 @@ from idaes.models.unit_models import Mixer, Heater, Flash
 
 import idaes.logger as idaeslog
 
-from idaes_fi.structfs.api import FlowsheetRunner, Steps
+from idaes_fi import FlowsheetRunner, Steps
 
-runner = FlowsheetRunner()
+runner = FlowsheetRunner(report_db=False)
 runner.steps = [
     Steps.build,
     Steps.set_scaling,
@@ -506,6 +506,7 @@ def solve_flowsheet(m, solver, stee=False):
 
 def display_results(m):
     """Display results for flowsheet"""
+    print(banner("results", 65))
     m.fs.M01.outlet.display()
     m.fs.H02.outlet.display()
     m.fs.F03.vap_outlet.display()
@@ -536,5 +537,24 @@ def main(runner):
 
 runner.main = main
 
+
+def banner(title: str, width: int):
+    if width % 2 == 1:
+        width -= 1
+    title = title.upper()
+    if len(title) % 2 == 1:
+        title = " " + title
+    n = len(title)
+    spc = " " * ((width - n) // 2)
+    return "\n".join(
+        [
+            "+" + "-" * width + "+",
+            "|" + spc + title + spc + "|",
+            "+" + "-" * width + "+",
+        ]
+    )
+
+
 if __name__ == "__main__":
-    runner.run_flowsheet()
+    m = runner.run_flowsheet()
+    display_results(m)

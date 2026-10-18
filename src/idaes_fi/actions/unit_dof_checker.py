@@ -25,8 +25,8 @@ from idaes.core.util.model_statistics import degrees_of_freedom
 from pydantic import BaseModel, Field
 from pyomo.network.port import ScalarPort
 
-from ..action_base import Action
-from idaes_fi.structfs.api import FlowsheetRunner
+from idaes_fi.action_base import Action
+from idaes_fi.api import FlowsheetRunner
 
 # Hold degrees of freedom for one FlowsheetRunner 'step'
 # {key=component: value=dof}

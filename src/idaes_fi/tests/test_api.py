@@ -1,19 +1,23 @@
 import pytest
-from idaes_fi.structfs import api
+from idaes_fi import api
 from . import demo_flowsheet
 
 
 def test_api_demo_flowsheet_db(tmp_path):
     report_file = tmp_path / "test_api_demo_flowsheet_db.sqlite"
     db = api.ReportDB(report_file)
-    api.FlowsheetRunner().run_flowsheet(fs_main)
+    runner = api.FlowsheetRunner(report_db=db)
+    runner.main = fs_main
+    runner.run_flowsheet()
 
 
 # @pytest.mark.parametrize("quiet", (True, False))
 def test_api_demo_flowsheet_console():
     quiet = False
     print(f"CONSOLE run quiet={quiet}")
-    api.FlowsheetRunner(report_db=False, quiet=quiet).run_flowsheet(fs_main)
+    runner = api.FlowsheetRunner(report_db=False, quiet=quiet)
+    runner.main = fs_main
+    runner.run_flowsheet()
 
 
 def fs_main(runner):
@@ -34,6 +38,3 @@ def fs_main(runner):
 
     runner.step_begin(api.Steps.solve_optimization)
     demo_flowsheet.solve_flowsheet(m, solver, stee=True)
-
-
-#    demo_flowsheet.display_results(m)

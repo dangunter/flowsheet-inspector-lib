@@ -27,7 +27,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 # package
-from ...gitutil import git_head_hash
+from ..gitutil import git_head_hash
 from ..action_base import Action
 
 __author__ = "Dan Gunter (LBNL)"

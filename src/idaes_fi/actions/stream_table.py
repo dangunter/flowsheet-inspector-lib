@@ -21,8 +21,8 @@ from idaes.core.util.tables import create_stream_table_ui
 from pydantic import BaseModel
 from pyomo.network import Arc
 
-from ..action_base import Action
-from idaes_fi.structfs.api import FlowsheetRunner
+from idaes_fi.action_base import Action
+from idaes_fi import FlowsheetRunner
 
 
 class StreamTable(Action):
