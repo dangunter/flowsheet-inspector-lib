@@ -1,21 +1,58 @@
+import logging
 import pytest
 from idaes_fi import api
+from idaes.logger import set_log_tags
 from . import demo_flowsheet
 
 
-def test_api_demo_flowsheet_db(tmp_path):
-    report_file = tmp_path / "test_api_demo_flowsheet_db.sqlite"
-    db = api.ReportDB(report_file)
-    runner = api.FlowsheetRunner(report_db=db)
-    runner.main = fs_main
+@pytest.mark.unit
+def test_null():
+    def say_hello(runner):
+        return f"hello {runner}"
+
+    runner = api.NullFlowsheetRunner()
+    runner.main = say_hello
+    runner.steps = ("a", "b", "c")
+    assert runner.steps == ("a", "b", "c")
+    runner.model = "not really a model"
+    assert runner.model == "not really a model"
+    result = runner.run_flowsheet()
+    assert result == f"hello {runner}"
+
+
+@pytest.mark.unit
+def test_log_level():
+    runner = api.FlowsheetRunner(report_db=False, quiet=True)
+
+    def noop(runner):
+        runner.step_begin("a")
+        runner.model = demo_flowsheet.build_flowsheet()
+        runner.step_begin("b")
+
+    runner.main = noop
+    runner.steps = ("a", "b")
+    runner.log_level = logging.INFO
+    set_log_tags(("ui",))
     runner.run_flowsheet()
 
 
-# @pytest.mark.parametrize("quiet", (True, False))
-def test_api_demo_flowsheet_console():
-    quiet = False
-    print(f"CONSOLE run quiet={quiet}")
-    runner = api.FlowsheetRunner(report_db=False, quiet=quiet)
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    "quiet,report_db", [(True, True), (False, False), (True, False)]
+)
+def test_demo_flowsheet(tmp_path, quiet, report_db):
+    print(f"quiet={quiet} report_db={report_db}")
+    if report_db:
+        report_file = tmp_path / "test_api_demo_flowsheet_db.sqlite"
+        report_db = api.ReportDB(report_file)
+    runner = api.FlowsheetRunner(report_db=report_db, quiet=quiet)
+    runner.steps = (
+        api.Steps.build,
+        api.Steps.set_scaling,
+        api.Steps.initialize,
+        api.Steps.set_solver,
+        api.Steps.solve_optimization,
+    )
     runner.main = fs_main
     runner.run_flowsheet()
 

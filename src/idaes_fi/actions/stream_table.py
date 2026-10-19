@@ -45,6 +45,11 @@ class StreamTable(Action):
 
     def after_run(self):
         """Build stream table after the run."""
+        m = self._runner.model
+        if not m:
+            self._stream_table = {}
+            return
+
         # get streams
         streams = {}
         for component in self._runner.model.component_objects(Arc, descend_into=True):

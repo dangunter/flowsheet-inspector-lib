@@ -56,9 +56,13 @@ class ModelVariables(Action):
 
     def after_run(self):
         """Actions performed after the run."""
-        self._saved_paths = {}  # fast lookup used in _add_block()
-        self.log = logging.getLogger(self.log.name)
-        self._extract_vars(self._runner.model)
+        m = self._runner.model
+        if m:
+            self._saved_paths = {}  # fast lookup used in _add_block()
+            self.log = logging.getLogger(self.log.name)
+            self._extract_vars(m)
+        else:
+            self._vars, self._ports = {}, {}
 
     def _extract_vars(self, m):
         var_tree = {}

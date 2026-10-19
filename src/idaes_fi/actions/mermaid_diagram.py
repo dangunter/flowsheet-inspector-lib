@@ -65,10 +65,10 @@ class MermaidDiagram(Action):
 
     def after_run(self):
         """Build Mermaid diagram after the run."""
-        if Connectivity is None:
+        root = self._runner.model
+        if Connectivity is None or root is None:
             self.diagram = None
         else:
-            root = self._runner.model
             for p in self._model_root_split:
                 root = getattr(root, p)
             conn = Connectivity(input_model=root)

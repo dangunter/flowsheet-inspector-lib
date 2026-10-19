@@ -126,14 +126,17 @@ class UnitDofChecker(Action):
     def after_run(self):
         """Actions performed after a run."""
         fs = self._get_flowsheet()
-        model_dof = degrees_of_freedom(fs)
-        self._model_dof = model_dof
-        if self._run_func:
-            self._run_func(self._steps_dof, model_dof)
+        if fs:
+            model_dof = degrees_of_freedom(fs)
+            self._model_dof = model_dof
+            if self._run_func:
+                self._run_func(self._steps_dof, model_dof)
+        else:
+            self._model_dof = 0
 
     def _get_flowsheet(self):
         m = self._runner.model
-        if self._fs:
+        if m and self._fs:
             return getattr(m, self._fs)
         return m
 

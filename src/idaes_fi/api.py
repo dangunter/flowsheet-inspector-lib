@@ -49,6 +49,11 @@ __author__ = "Dan Gunter (LBNL)"
 
 
 class _FlowsheetRunnerInterface(ABC):
+    def __init__(self):
+        self._model = None
+        self._steps = None
+        self._main = None
+
     @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
         pass
@@ -117,6 +122,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             quiet: If True, do not print anything to the console (logging
                    may still occur, but that is controlled separately)
         """
+        super().__init__()
         self._quiet = quiet
         if report_db is False:
             self._report_db = None
@@ -124,9 +130,6 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self._report_db = init_report_db()
             self._report_id = None
         self._fs_name = flowsheet_name
-        self._model = None
-        self._steps = None
-        self._main = None
 
         caller = inspect.currentframe().f_back
         self._caller_file = caller.f_globals.get("__file__") if caller else None
@@ -172,6 +175,17 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
     # Get/set the main flowsheet function
     main = property(_get_main, _set_main)
+
+    # Log level getter/setter
+    @property
+    def log_level(self):
+        return self._idaes_log.getEffectiveLevel()
+
+    @log_level.setter
+    def log_level(self, level: int):
+        self._idaes_log.setLevel(level)
+
+    # End of properties
 
     def _default_actions(self) -> list[Action]:
         from .actions import (
@@ -227,8 +241,6 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self._log("end", error=err)
             self._current_step = None
             run_error = err
-        else:
-            self._log("end")
 
         self._flowsheet_end(error=run_error)
 
@@ -278,11 +290,13 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         elif not self._quiet:
             self._print_report(report, error)
 
+        self._log("end")
+
     def _log(self, stage: str, error=None):
         what = f"flowsheet.{self._current_step}" if self._current_step else "flowsheet"
         msg = f"{what}::{stage}"
         if error is not None:
-            msg += ";error={error}"
+            msg += f" error={error}"
         self._idaes_log.info(msg)
 
     def _create_report(self) -> dict[str, dict]:
@@ -345,8 +359,14 @@ class NullFlowsheetRunner(_FlowsheetRunnerInterface):
     pattern; see NullFlowsheetRunner class.
     """
 
-    def run_flowsheet(self, fn, *args, **kwargs) -> object:
-        return fn(self, *args, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+    def run_flowsheet(self, *args, **kwargs) -> object:
+        if self._main:
+            return self._main(self, *args, **kwargs)
+        else:
+            return None
 
     def step_begin(self, name: str):
         pass
@@ -355,25 +375,25 @@ class NullFlowsheetRunner(_FlowsheetRunnerInterface):
         pass
 
     def _get_main(self) -> Optional[Callable]:
-        return None
+        return self._main
 
     def _set_main(self, fn: Optional[Callable]):
-        pass
+        self._main = fn
 
     def _get_report_db_file(self) -> Path:
         return Path()
 
     def _get_model(self) -> object:
-        return None
+        return self._model
 
     def _set_model(self, m: object):
-        pass
+        self._model = m
 
     def _get_steps(self) -> list[str]:
-        return []
+        return self._steps
 
     def _set_steps(self, s: list[str]):
-        pass
+        self._steps = s
 
     report_db_file = property(_get_report_db_file, None)
     model = property(_get_model, _set_model)
