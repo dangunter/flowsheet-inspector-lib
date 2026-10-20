@@ -48,11 +48,19 @@ from .common import Steps
 __author__ = "Dan Gunter (LBNL)"
 
 
+class _LastStep(Exception):
+    """Special exception for stopping the run after a given step."""
+
+    pass
+
+
 class _FlowsheetRunnerInterface(ABC):
     def __init__(self):
         self._model = None
         self._steps = None
         self._main = None
+        self._last_step = None
+        self._finalize = None
 
     @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
@@ -101,6 +109,14 @@ class _FlowsheetRunnerInterface(ABC):
         pass
 
     steps = property(_get_steps, _set_steps)
+
+    def _get_last_step(self) -> str:
+        return self._last_step
+
+    def _set_last_step(self, value: str):
+        self._last_step = value
+
+    last_step = property(_get_last_step, _set_last_step)
 
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
@@ -219,9 +235,17 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         ]
 
     def run_flowsheet(self, *args, **kwargs) -> object:
-        """Run the flowsheet, passing arguments to function provided as `main`."""
+        """Run the flowsheet.
+
+        Args:
+           args: Positional arguments passed to `runner.main`.
+           kwargs: Keyword arguments passed to `runner.main`.
+        """
         if self._main is None:
             raise ValueError("Must set .main function before calling run_flowsheet")
+
+        self._save_args = args
+        self._save_kwargs = kwargs
 
         self._current_step = None
         self._log("begin")
@@ -237,10 +261,13 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             run_error, result = None, None
             result = self._main(self, *args, **kwargs)
         except Exception as err:
-            print(f"Exception! run_error={err}")
-            self._log("end", error=err)
+            if isinstance(err, _LastStep):
+                # special exception; not an error
+                self._log("end")
+            else:
+                self._log("end", error=err)
+                run_error = err
             self._current_step = None
-            run_error = err
 
         self._flowsheet_end(error=run_error)
 
@@ -273,6 +300,10 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         # finalize
         self._log("end")
         self._completed_steps.append(self._current_step)
+
+        if self._last_step == self._current_step:
+            raise _LastStep()  # exit
+
         self._current_step = None
 
     def _flowsheet_end(self, error=None):
@@ -291,6 +322,12 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self._print_report(report, error)
 
         self._log("end")
+
+    def _exit_program(self):
+        """Called when last_step, set by the caller, is reached."""
+        if self._finalize is not None:
+            self._finalize(*self._save_args, **self.save_kwargs)
+        sys.exit(0)
 
     def _log(self, stage: str, error=None):
         what = f"flowsheet.{self._current_step}" if self._current_step else "flowsheet"

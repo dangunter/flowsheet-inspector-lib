@@ -79,29 +79,11 @@ class Action(ABC):
         """
         return
 
-    def before_label(self, step_name: str, label_name: str):
-        """Perform this action before the named sub-step.
-
-        Args:
-            step_name: Name of the step
-            label_name: Name of the sub-step
-        """
-        return
-
     def after_step(self, step_name: str):
         """Perform this action after the named step.
 
         Args:
             step_name: Name of the step
-        """
-        return
-
-    def after_label(self, step_name: str, label_name: str):
-        """Perform this action after the named sub-step.
-
-        Args:
-            step_name: Name of the step
-            label_name: Name of the sub-step
         """
         return
 
