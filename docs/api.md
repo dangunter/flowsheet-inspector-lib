@@ -6,6 +6,8 @@ title: Flowsheet Inspector Library API
 This section describes the application programming interface (API) used to
 "wrap" flowsheets with the Flowsheet Inspector (FI).
 
+To learn this API by example, skip down to the [Minimal Wrapper](#minimal-wrapper) section.
+
 ## Overview
 
 FI instruments an ordinary IDAES flowsheet by placing its build, setup, initialization, and solve operations inside named steps. A wrapped flowsheet has three parts:
@@ -63,6 +65,9 @@ from idaes.core.solvers import get_solver
 
 from idaes_fi import FlowsheetRunner, Steps
 
+#--------------------------------------
+# Create FlowsheetRunner object
+#--------------------------------------
 
 runner = FlowsheetRunner()
 runner.steps = [
@@ -72,6 +77,10 @@ runner.steps = [
     Steps.solve_optimization,
 ]
 
+#--------------------------------------
+# Existing code to build, solve, etc.
+# the flowsheet does not change
+#--------------------------------------
 
 def build_flowsheet():
     model = ConcreteModel()
@@ -79,28 +88,44 @@ def build_flowsheet():
     # Add the property package, unit models, arcs, and constraints here.
     return model
 
+# initialize, solve, etc..
+
+#--------------------------------------
+# Add step_begin/end and set model
+# in main function.
+#--------------------------------------
 
 def main(runner):
     runner.step_begin(Steps.build)
     runner.model = model = build_flowsheet()
 
     runner.step_begin(Steps.initialize)
-    # Initialize units and propagate states as required by the flowsheet.
+    # Initialize units as required by the flowsheet.
 
     runner.step_begin(Steps.set_solver)
     solver = get_solver()
 
     runner.step_begin(Steps.solve_optimization)
     solver.solve(model, tee=True)
+
     return model
 
+
+#--------------------------------------
+# Set main function in FlowsheetRunner
+#--------------------------------------
 
 runner.main = main
 
 
+#--------------------------------------
+# Run the flowsheet
+#--------------------------------------
+
 if __name__ == "__main__":
     model = runner.run_flowsheet()
 ```
+
 
 ### Step begin/end
 
@@ -184,9 +209,8 @@ from idaes_fi import FlowsheetRunner
 from idaes_fi.api import ReportDB
 
 runner = FlowsheetRunner(
-    report_db="reports.sqlite",
+    report_db="reports.sqlite"
     # Equivalent: report_db=ReportDB(Path("reports.sqlite"))
-    quiet=False,
 )
 ```
 
