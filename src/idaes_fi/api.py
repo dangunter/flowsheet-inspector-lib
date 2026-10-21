@@ -124,17 +124,17 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
     def __init__(
         self,
-        flowsheet_name: str = "fs",
-        report_db: Optional[bool | ReportDB] = True,
+        flowsheet_block: str = "fs",
+        report_db: Optional[bool | str | Path | ReportDB] = True,
         quiet: bool = False,
     ):
         """Constructor.
 
         Args:
-            flowsheet_name: Name in model of flowsheet block
+            flowsheet_block: Name in model of flowsheet block
             report_db: If True or None, get default DB. If False, do not
                        use a report db. Otherwise, use value as the report
-                       database (assume it is a ReportDB instance).
+                       database (must be a filename or ReportDB instance).
             quiet: If True, do not print anything to the console (logging
                    may still occur, but that is controlled separately)
         """
@@ -142,10 +142,21 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._quiet = quiet
         if report_db is False:
             self._report_db = None
-        else:
+        elif report_db is True or report_db is None:
             self._report_db = init_report_db()
-            self._report_id = None
-        self._fs_name = flowsheet_name
+        elif isinstance(report_db, ReportDB):
+            self._report_db = report_db
+        elif isinstance(report_db, Path) or isinstance(report_db, str):
+            filename = Path(report_db)
+            self._report_db = ReportDB(filename)
+        else:
+            raise TypeError(
+                "report_db must be True/False/None, "
+                "a filename, or a ReportDB instance"
+            )
+        self._report_id = None
+
+        self._fs_name = flowsheet_block
 
         caller = inspect.currentframe().f_back
         self._caller_file = caller.f_globals.get("__file__") if caller else None
@@ -154,8 +165,11 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._idaes_log = getIdaesLogger(__name__, tag="ui")
 
         self._completed_steps = []
+        self._flowsheet_ended = False
 
     def _get_report_db_file(self) -> Path:
+        if self._report_db is None:
+            return None
         return Path(self._report_db.filename)
 
     #: Get report database file path
@@ -301,14 +315,15 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._log("end")
         self._completed_steps.append(self._current_step)
 
-        if self._last_step == self._current_step:
-            raise _LastStep()  # exit
+        if not self._flowsheet_ended and self._last_step == self._current_step:
+            raise _LastStep(self._current_step)  # exit
 
         self._current_step = None
 
     def _flowsheet_end(self, error=None):
         # close out last step, if needed
         if self._current_step is not None:
+            self._flowsheet_ended = True
             self.step_end()
 
         # run actions

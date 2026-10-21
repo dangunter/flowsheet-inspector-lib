@@ -1,5 +1,8 @@
 import logging
+import sys
+
 import pytest
+
 from idaes_fi import api
 from idaes.logger import set_log_tags
 from . import demo_flowsheet
@@ -34,6 +37,35 @@ def test_log_level():
     runner.log_level = logging.INFO
     set_log_tags(("ui",))
     runner.run_flowsheet()
+
+
+@pytest.mark.unit
+def test_last_step(tmp_path):
+    runner = api.FlowsheetRunner(report_db=tmp_path / "runner.db")
+    where = None
+
+    def mymain(runner):
+        runner.step_begin("a")
+        where.append("a")
+        runner.model = demo_flowsheet.build_flowsheet()
+        runner.step_begin("b")
+        where.append("b")
+        runner.step_begin("c")
+        where.append("c")
+        runner.step_begin("d")
+        where.append("d")
+
+    runner.main = mymain
+    print("\nStep: ", end="")
+    sys.stdout.flush()
+    for step_name in "abcd":
+        print(f"{step_name}", end=" -> ")
+        sys.stdout.flush()
+        where = []
+        runner.last_step = step_name
+        runner.run_flowsheet()
+        assert where[-1] == step_name
+    print("done.")
 
 
 @pytest.mark.integration
