@@ -185,8 +185,8 @@ nbsphinx_execute = "auto"
 html_theme = "sphinx_book_theme"
 html_theme_options = {
     "logo": {
-        "image_light": "images/logo-text-black.png",
-        "image_dark": "images/logo-text-white.png",
+        "image_light": "images/FI-light.png",
+        "image_dark": "images/FI-dark.png",
     },
     "repository_provider": "github",
     "repository_url": "https://github.com/prommis/flowsheet-inspector-lib",
@@ -197,8 +197,8 @@ html_theme_options = {
 }
 html_theme_path = [theme.get_html_theme_path()]
 html_title = "FI v{}".format(release)
-html_logo = "images/logo-symbol-fi_100x100.png"
-html_favicon = "images/logo-symbol-fi.ico"
+html_logo = "images/FI-light-small.png"
+html_favicon = "images/FI-light.ico"
 html_static_path = ["static", "images"]
 html_css_files = ["css/custom.css", "css/badge_only.css"]
 html_extra_path = ["static/extra/"]
