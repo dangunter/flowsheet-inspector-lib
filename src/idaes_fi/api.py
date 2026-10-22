@@ -61,6 +61,7 @@ class _FlowsheetRunnerInterface(ABC):
         self._main = None
         self._last_step = None
         self._finalize = None
+        self._results = []
 
     @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
@@ -118,6 +119,17 @@ class _FlowsheetRunnerInterface(ABC):
 
     last_step = property(_get_last_step, _set_last_step)
 
+    def _get_results(self) -> object:
+        return self._results
+
+    def _set_results(self, value):
+        if not value:
+            self._results = []  # reset
+        else:
+            self._results.append(value)
+
+    solve_result = property(_get_results, _set_results)
+
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
     """For using your flowsheet with the Flowsheet Inspector."""
@@ -148,12 +160,18 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self._report_db = report_db
         elif isinstance(report_db, Path) or isinstance(report_db, str):
             filename = Path(report_db)
+            if not filename.exists():
+                filename.open("w")  # create it
             self._report_db = ReportDB(filename)
+            if filename.stat().st_size == 0:
+                self._report_db.create(exist_ok=False)
         else:
             raise TypeError(
                 "report_db must be True/False/None, "
                 "a filename, or a ReportDB instance"
             )
+        if self._report_db:
+            self._report_db.test_connection()
         self._report_id = None
 
         self._fs_name = flowsheet_block
@@ -223,6 +241,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             MermaidDiagram,
             UnitModelReport,
             ModelVariables,
+            GetSolverResults,
             StreamTable,
             CaptureSolverOutput,
             Diagnostics,
@@ -241,7 +260,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
                 (MermaidDiagram, ()),
                 (UnitModelReport, ()),
                 (ModelVariables, ()),
-                #                (GetSolverResults, ()),
+                (GetSolverResults, ()),
                 (StreamTable, ()),
                 (Timer, ()),
                 (GitHash, (self._caller_file,)),
@@ -400,8 +419,26 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             print(f"ERROR: {error}")
         actions = report["actions"]
         solver_out = actions["CaptureSolverOutput"]["output"]
+        solver_results = actions["GetSolverResults"]["results"]
+
+        def status_word(opt):
+            if opt is None:
+                return "unknown"
+            return ("failed", "success")[opt]
+
         for name, output in solver_out.items():
-            print(f"--- {name} ---\n{output}\n--- End ({name}) ---")
+            tstat = []
+            if name in solver_results:
+                r = solver_results[name]
+                for solve in r:
+                    status_list = [status_word(problem["optimal"]) for problem in solve]
+                    tstat.append("/".join(status_list))
+            tstat_str = " ; ".join(tstat) if tstat else "unknown"
+            print(
+                f"--- {name} ---\n"
+                f"Termination: {tstat_str}\n"
+                f"{output}\n--- End ({name}) ---"
+            )
         # json.dump(report, sys.stdout, indent=2)
 
 

@@ -530,7 +530,10 @@ def main(runner):
     solver = get_solver()
 
     runner.step_begin(Steps.solve_optimization)
-    solve_flowsheet(m, solver, stee=True)
+    runner.solve_result = solve_flowsheet(m, solver, stee=True)
+    ## For testing: make it fail!
+    # m.fs.F03.heat_duty.fix(1e6)
+    # runner.solve_result = solve_flowsheet(m, solver, stee=True)
 
     return m
 
@@ -539,12 +542,10 @@ runner.main = main
 
 
 def banner(title: str, width: int):
-    if width % 2 == 1:
-        width -= 1
     title = title.upper()
-    if len(title) % 2 == 1:
-        title = " " + title
     n = len(title)
+    if (width - n) % 2 == 1:
+        width += 1
     spc = " " * ((width - n) // 2)
     return "\n".join(
         [

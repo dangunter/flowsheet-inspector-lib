@@ -46,6 +46,9 @@ Key behaviors of the `FlowsheetRunner` object are controlled by setting properti
     * `model` _(required, but not before running)_. The value of the Pyomo model must be assigned to this attribute in `FlowsheetRunner.main` during the first step of the flowsheet (typically called "build" or using the constant `Steps.build`). This allows for actions triggered at the end of each step to inspect and report on the state of the model.
 * The following properties are optional or read-only:
     * `last_step` _(optional)_. The name of the last step to run. If not set, every step is run. If set, after the step matching the given name, execution of the `FlowsheetRunner.main` function will stop.
+    * `solve_result` _(optional)_. Set this property to the return value of the Pyomo/IDAES `solver.solve()` call. If this is done, the solve result will be automatically extracted and visible in the Flowsheet Inspector interface. This property can be set multiple
+    times in a single step (internally, it is stored as a list), and set in multiple steps (each step's solves are stored separately),
+    so in other words it can be set any time a solve occurs in the code.
     * `report_db_file` _(read-only)_. The SQLite file where the database used for tracking status and results -- the 'report' database -- is located. The default location can be changed (or even disabled) with the `report_db` argument passed to the `FlowsheetRunner` constructor. If the report database is disabled, this will be `None`.
 
 #### Usage

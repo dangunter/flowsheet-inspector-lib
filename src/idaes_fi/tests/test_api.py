@@ -56,10 +56,10 @@ def test_last_step(tmp_path):
         where.append("d")
 
     runner.main = mymain
-    print("\nStep: ", end="")
+    print("\nStep: ", end="")  # dbg
     sys.stdout.flush()
     for step_name in "abcd":
-        print(f"{step_name}", end=" -> ")
+        print(f"{step_name}", end=" -> ")  # dbg
         sys.stdout.flush()
         where = []
         runner.last_step = step_name
@@ -75,8 +75,7 @@ def test_last_step(tmp_path):
 def test_demo_flowsheet(tmp_path, quiet, report_db):
     print(f"quiet={quiet} report_db={report_db}")
     if report_db:
-        report_file = tmp_path / "test_api_demo_flowsheet_db.sqlite"
-        report_db = api.ReportDB(report_file)
+        report_db = tmp_path / "test_api_demo_flowsheet_db.sqlite"
     runner = api.FlowsheetRunner(report_db=report_db, quiet=quiet)
     runner.steps = (
         api.Steps.build,
