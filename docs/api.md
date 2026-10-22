@@ -1,7 +1,7 @@
 ---
-title: Flowsheet Inspector Library API
+title: API
 ---
-# Flowsheet Inspector Library API
+# API
 
 This section describes the application programming interface (API) used to
 "wrap" flowsheets with the Flowsheet Inspector (FI).
@@ -24,32 +24,27 @@ The `FlowsheetRunner` object is the focus of the API. It is usually constructed 
 
 #### Constructor 
 
-`class FlowsheetRunner(
-    flowsheet_block: str = "fs",
-    report_db: Optional[bool | str | Path | ReportDB] = True,
-    quiet: bool = False)`
-
-_Arguments:_
-* **flowsheet_block**: Name in model of flowsheet block
-* **report_db**: If True or None, get default DB. If False, do not
+`class FlowsheetRunner(flowsheet_block: str = "fs", report_db: Optional[bool | str | Path | ReportDB] = True, quiet: bool = False)`  
+<dl class="args">
+<dt>flowsheet_block</dt><dd>Name in model of flowsheet block</dd>
+<dt>report_db</dt><dd>If True or None, get default DB. If False, do not
                 use a report db. Otherwise, use value as the report
                 database (must be a filename or ReportDB instance).
-* **quiet**: If True, do not print anything to the console (logging
+<dt>quiet</dt><dd>If True, do not print anything to the console (logging
             may still occur, but that is controlled separately)
+</dl>
 
 #### Properties
 
 Key behaviors of the `FlowsheetRunner` object are controlled by setting properties. 
 * The following propertiees are required or recommended to set:
-    * `main` _(required)_. This is a reference to the function mentioned above in (2), which takes the `FlowsheetRunner` instance as its first argument and runs the flowsheet. This function can take any additional position or keyword arguments. This should be assigned before the call to `run_flowsheet()`, typically at module scope right after the main function is defined.
-    * `steps` _(recommended)_. List of all steps, in correct order, that will be in the `FlowsheetRunner.main` function. This allows the FI to know in advance the step names, so it can display them in the extension. Otherwise the UI will have to guess at and/or show minimal step names.
-    * `model` _(required, but not before running)_. The value of the Pyomo model must be assigned to this attribute in `FlowsheetRunner.main` during the first step of the flowsheet (typically called "build" or using the constant `Steps.build`). This allows for actions triggered at the end of each step to inspect and report on the state of the model.
+    * **main** _(required)_. This is a reference to the function mentioned above in (2), which takes the `FlowsheetRunner` instance as its first argument and runs the flowsheet. This function can take any additional position or keyword arguments. This should be assigned before the call to `run_flowsheet()`, typically at module scope right after the main function is defined.
+    * **steps** _(recommended)_. List of all steps, in correct order, that will be in the `FlowsheetRunner.main` function. This allows the FI to know in advance the step names, so it can display them in the extension. Otherwise the UI will have to guess at and/or show minimal step names.
+    * **model** _(required, but not before running)_. The value of the Pyomo model must be assigned to this attribute in `FlowsheetRunner.main` during the first step of the flowsheet (typically called "build" or using the constant `Steps.build`). This allows for actions triggered at the end of each step to inspect and report on the state of the model.
+    * **solve_result** _(recommended)_. Set this property to the return value of the Pyomo/IDAES `solver.solve()` call. If this is done, the solve result will be automatically extracted and visible in the Flowsheet Inspector interface. This property can be set multiple times in a single step (internally, it is stored as a list), and set in multiple steps (each step's solves are stored separately), so in other words it can be set any time a solve occurs in the code.
 * The following properties are optional or read-only:
-    * `last_step` _(optional)_. The name of the last step to run. If not set, every step is run. If set, after the step matching the given name, execution of the `FlowsheetRunner.main` function will stop.
-    * `solve_result` _(optional)_. Set this property to the return value of the Pyomo/IDAES `solver.solve()` call. If this is done, the solve result will be automatically extracted and visible in the Flowsheet Inspector interface. This property can be set multiple
-    times in a single step (internally, it is stored as a list), and set in multiple steps (each step's solves are stored separately),
-    so in other words it can be set any time a solve occurs in the code.
-    * `report_db_file` _(read-only)_. The SQLite file where the database used for tracking status and results -- the 'report' database -- is located. The default location can be changed (or even disabled) with the `report_db` argument passed to the `FlowsheetRunner` constructor. If the report database is disabled, this will be `None`.
+    * **last_step** _(optional)_. The name of the last step to run. If not set, every step is run. If set, after the step matching the given name, execution of the `FlowsheetRunner.main` function will stop.
+    * **report_db_file** _(read-only)_. The SQLite file where the database used for tracking status and results -- the 'report' database -- is located. The default location can be changed (or even disabled) with the `report_db` argument passed to the `FlowsheetRunner` constructor. If the report database is disabled, this will be `None`.
 
 #### Usage
 
