@@ -94,16 +94,21 @@ class MigrationStrategy:
             )
         elif old_maj == self._maj and old_min == self._min:
             _log.info(f"Database at '{filename}' is current, no migration needed")
-            return  # No migration needed
+            return False  # No migration needed
 
         # check complete, perform database migration
-        print("@@ Performing migration")
-        assert old_maj == self._maj and old_min < self._min
-        _log.info(
-            f"Migrating database from version {old_maj}.{old_min} to "
-            f"{self._maj}.{self._min}."
+        _log.debug(
+            f"Performing database migration from {old_maj}.{old_min} -> {self._maj}.{self._min}"
         )
-        tmp = NamedTemporaryFile()
+        assert old_maj == self._maj and old_min < self._min
+
+        # create empty DB in temporary file, which
+        # will be the target of the migration
+        tmp = NamedTemporaryFile("w+")
+        tmp_db = ReportDB(tmp.name)
+        tmp_db.create()
+
+        # Dispatch to migration function for this (old, new) version pair
         migration_func = f"migrate_{old_maj}_{old_min}_to_{self._maj}_{self._min}"
         if not hasattr(self, migration_func):
             raise MigrationError(
@@ -118,13 +123,14 @@ class MigrationStrategy:
                 f"{self._maj}.{self._min} failed: {e}"
             )
 
-        tmp.close()
-
         # Move the temporary file to the original database location
         backup_filename = self._backup(filename)
-        _log.info(f"Backup of original database created at {backup_filename}.")
-        shutil.move(tmp.name, filename)
-        del tmp
+        _log.debug(f"Backup of original database created at {backup_filename}.")
+        shutil.copy(tmp.name, filename)
+        _log.info(f"Database at {filename} migrated to {self._maj}.{self._min}")
+        # note: tmp db file will be removed automatically
+
+        return True  # migration performed
 
     @staticmethod
     def _backup(filename: str) -> str:
@@ -142,28 +148,32 @@ class MigrationStrategy:
     # ---
 
     def migrate_1_0_to_1_1(self, old_db: ReportDB, new_filename: str):
+        hdr = f"Migrate ({old_db.filename}) 1.0 -> ({new_filename}) 1.1"
         # Copy data in report table without modification
-        for table in (old_db.RPT_TABLE,):
-            self._copy_rows(old_db, new_db, table, transform_func=None)
+        _log.debug(f"{hdr}: copy report data")
+        for table in (ReportDB.RPT_TABLE,):
+            self._copy_rows(old_db.filename, new_filename, table, transform_func=None)
 
         # Populate status table with one row for each report
-        old_conn = sqlite3.connect(old_db.filename)
-        new_conn = sqlite3.connect(new_filename)
-        for row in old_conn.execute(f"SELECT * FROM {old_db.RPT_TABLE}"):
-            new_conn.execute(
-                f"INSERT INTO {new_db.STATUS_TABLE} VALUES (?, ?, ?)",
-                (
-                    row[0],  # report id
-                    0,  # run_id
-                    1,  # step_num
-                    0.0,  # start
-                    0.0,  # end
-                    0.0,  # duration
-                    0,  # errcode
-                    "",  # errmsg
-                    True,  # solve_ok
-                ),
-            )
+        _log.debug(f"{hdr}: populate status table")
+        with sqlite3.connect(old_db.filename) as old_conn:
+            with sqlite3.connect(new_filename) as new_conn:
+                for row in old_conn.execute(f"SELECT id FROM {ReportDB.RPT_TABLE}"):
+                    q9 = ", ".join(["?"] * 9)
+                    new_conn.execute(
+                        f"INSERT INTO {ReportDB.STAT_TABLE} VALUES ({q9})",
+                        (
+                            row[0],  # report id
+                            0,  # run_id
+                            1,  # step_num
+                            0.0,  # start
+                            0.0,  # end
+                            0.0,  # duration
+                            0,  # errcode
+                            "",  # errmsg
+                            True,  # solve_ok
+                        ),
+                    )
 
     # ---
     # Helper functions
@@ -171,15 +181,15 @@ class MigrationStrategy:
 
     @classmethod
     def _copy_rows(
-        cls, old_db: ReportDB, new_db: ReportDB, table_name: str, transform_func=None
+        cls, src_filename: str, tgt_filename: str, table_name: str, transform_func=None
     ):
         """Copy rows from old database to new database."""
-        old_conn = sqlite3.connect(old_db.filename)
-        new_conn = sqlite3.connect(new_db.filename)
-        for row in old_conn.execute(f"SELECT * FROM {table_name}"):
-            n = len(row)
-            if transform_func is not None:
-                row = transform_func(row)
-            new_conn.execute(
-                f"INSERT INTO {table_name} VALUES ({','.join(['?'] * n)})", row
-            )
+        with sqlite3.connect(src_filename) as src_conn:
+            with sqlite3.connect(tgt_filename) as tgt_conn:
+                for row in src_conn.execute(f"SELECT * FROM {table_name}"):
+                    n = len(row)
+                    if transform_func is not None:
+                        row = transform_func(row)
+                    tgt_conn.execute(
+                        f"INSERT INTO {table_name} VALUES ({','.join(['?'] * n)})", row
+                    )

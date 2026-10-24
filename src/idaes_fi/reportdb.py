@@ -221,7 +221,7 @@ class ReportDB:
         Raises:
             sqlite3.Error: If SQLite cannot drop or create the table.
         """
-        _log.info("Create reports table")
+        _log.info("Create tables")
         with self._connect() as conn:
             # create new report and status tables
             if drop:
