@@ -534,8 +534,8 @@ def get_module_flowsheet_runners(m: ModuleType) -> dict[str, _FlowsheetRunnerInt
     """Get list of variables in a module that are FlowsheetRunner-s."""
     result = {}
     for key in dir(m):
-        v = m[key]
-        if issubclass(v, _FlowsheetRunnerInterface):
+        v = getattr(m, key)
+        if isinstance(v, _FlowsheetRunnerInterface):
             result[key] = v
     return result
 
