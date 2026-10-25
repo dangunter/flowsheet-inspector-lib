@@ -25,9 +25,8 @@ from abc import ABC, abstractmethod
 import inspect
 import importlib
 from importlib.util import module_from_spec, spec_from_file_location
+import logging
 from pathlib import Path
-import sys
-import time
 import traceback
 from types import ModuleType
 from typing import Callable, Optional
@@ -38,7 +37,6 @@ from pydantic import BaseModel
 
 # idaes-pse
 from idaes.config import get_data_directory
-from idaes.logger import getIdaesLogger
 
 # pkg
 from .reportdb import ReportDB, DBError
@@ -180,10 +178,16 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._caller_file = caller.f_globals.get("__file__") if caller else None
         self.actions: list[Action] = self._default_actions()
 
-        self._idaes_log = getIdaesLogger(__name__, tag="ui")
+        self._init_log()
 
         self._completed_steps = []
         self._flowsheet_ended = False
+
+    def _init_log(self):
+        self._fslog = logging.getLogger(__name__)
+        logging.basicConfig(
+            format="[%(levelname)s] %(asctime)s %(module)s - %(message)s"
+        )
 
     def _get_report_db_file(self) -> Path:
         if self._report_db is None:
@@ -227,11 +231,12 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
     # Log level getter/setter
     @property
     def log_level(self):
-        return self._idaes_log.getEffectiveLevel()
+        return self._fslog.getEffectiveLevel()
 
     @log_level.setter
     def log_level(self, level: int):
-        self._idaes_log.setLevel(level)
+        print(f"@@ Set level {level}")
+        self._fslog.setLevel(level)
 
     # End of properties
 
@@ -334,6 +339,9 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._log("end")
         self._completed_steps.append(self._current_step)
 
+        self._fslog.debug(
+            f"check step '{self._current_step}' == last step '{self._last_step}'"
+        )
         if not self._flowsheet_ended and self._last_step == self._current_step:
             raise _LastStep(self._current_step)  # exit
 
@@ -357,18 +365,12 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
         self._log("end")
 
-    def _exit_program(self):
-        """Called when last_step, set by the caller, is reached."""
-        if self._finalize is not None:
-            self._finalize(*self._save_args, **self.save_kwargs)
-        sys.exit(0)
-
     def _log(self, stage: str, error=None):
         what = f"flowsheet.{self._current_step}" if self._current_step else "flowsheet"
         msg = f"{what}::{stage}"
         if error is not None:
             msg += f" error={error}"
-        self._idaes_log.info(msg)
+        self._fslog.info(msg)
 
     def _create_report(self) -> dict[str, dict]:
         """Compile reports of each action into a combined report
