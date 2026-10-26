@@ -207,7 +207,6 @@ def main():
         "--level",
         "-L",
         help="Set logging level for flowsheet runner",
-        choices=["critical", "fatal", "error", "warn", "warning", "info", "debug"],
         action=LogLevelAction,
         default=logging.INFO,
     )
