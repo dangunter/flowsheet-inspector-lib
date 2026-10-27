@@ -7,23 +7,36 @@ The package provides the `ifi` command for console usage
 Use `ifi --help` to see the top-level command list.
 
 Global options:
-<dl class="args">
-<dt>--json/-J</dt>
-<dd>Where appropriate, show JSON output instead of plain text output. Useful for interfacing with scripts and other automated processes.</dd>
-</dl>
+```
+--json/-J   Where appropriate, show JSON output instead 
+            of plain text output. Useful for interfacing
+            with scripts and other automated processes.
+```
 
-Subcommands:
-<dl class="args">
-<dt>db</dt><dd>Inspect or modify the database</dd>
-<dt>flowsheet</dt><dd>Inspect or run flowsheets</dd>
-</dl>
+### Subcommands
 
-These subcommands have further sub-subcommands.
-Use `ifi <subcommand> --help` to see help for each subcommand and
-a list of their sub-subcommands and, finally, `ifi <subcommand> <sub-subcommand> --help` to see options for the actual function to execute.
-For example: `ifi db migrate --help` will show options for the database
-migration function.
-
+* **ifi db migrate**: Migrate to latest database version
+    ```
+    --file, -f FILE  Database file (instead of default)
+    ```
+* **ifi db info**: Show current database information
+    ```
+    --file, -f FILE  Database file (instead of default)
+    ```
+* **ifi flowsheet run**: Run flowsheet
+    ```
+    --file, -f FILE       Flowsheet Python file
+    --module, -m MODULE   Flowsheet Python module name
+    --name, -n NAME       Flowsheet variable name (if >1)
+    --last-step, -l LAST_STEP
+    Flowsheet step at which to stop the run
+    ```
+* **ifi flowsheet steps**: Get defined steps for a flowsheet
+    ```
+    --file, -f FILE      Flowsheet Python file
+    --module, -m MODULE  Flowsheet Python module name
+    --name, -n NAME      Flowsheet variable name (if >1)
+    ```
 ## Programmatic usage
 
 Each sub-command available through the `ifi` command can also be found in the `idaes_fi.commands` module, where the name of the function is simply the subcommand and sub-subcommand name separated by an underscore.

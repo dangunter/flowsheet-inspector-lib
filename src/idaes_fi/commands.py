@@ -224,11 +224,13 @@ def main():
     dbp = p_subp.add_parser("db")
     dbp_subp = dbp.add_subparsers()
     # db migrate
-    cmd = dbp_subp.add_parser("migrate", help="Migrate to latest database version")
+    desc = "Migrate to latest database version"
+    cmd = dbp_subp.add_parser("migrate", help=desc, description=desc)
     cmd.set_defaults(func=_db_migrate_cli)
     cmd.add_argument("--file", "-f", help="Database file (instead of default)")
     # db version
-    cmd = dbp_subp.add_parser("info", help="Show current database information")
+    desc = "Show current database information"
+    cmd = dbp_subp.add_parser("info", help=desc, description=desc)
     cmd.add_argument("--file", "-f", help="Database file (instead of default)")
     cmd.set_defaults(func=_db_info_cli)
 
@@ -243,7 +245,8 @@ def main():
     )
     run_subp = runp.add_subparsers()
     # run flowsheet
-    cmd = run_subp.add_parser("run")
+    desc = "Run flowsheet"
+    cmd = run_subp.add_parser("run", help=desc, description=desc)
     cmd.add_argument("--file", "-f", help="Flowsheet Python file")
     cmd.add_argument("--module", "-m", help="Flowsheet Python module name")
     cmd.add_argument("--name", "-n", help="Flowsheet variable name (if >1)")
@@ -252,7 +255,8 @@ def main():
     )
     cmd.set_defaults(func=_flowsheet_run_cli)
     # get steps for flowsheet
-    cmd = run_subp.add_parser("steps")
+    desc = "Get defined steps for a flowsheet"
+    cmd = run_subp.add_parser("steps", help=desc, description=desc)
     cmd.add_argument("--file", "-f", help="Flowsheet Python file")
     cmd.add_argument("--module", "-m", help="Flowsheet Python module name")
     cmd.add_argument("--name", "-n", help="Flowsheet variable name (if >1)")
