@@ -24,8 +24,9 @@ The `FlowsheetRunner` object is the focus of the API. It is usually constructed 
 
 #### Constructor 
 
-`class FlowsheetRunner(flowsheet_block: str = "fs", report_db: Optional[bool | str | Path | ReportDB] = True, quiet: bool = False)`  
+`class FlowsheetRunner(steps: list[str] = None, flowsheet_block: str = "fs", report_db: Optional[bool | str | Path | ReportDB] = True, quiet: bool = False)`  
 <dl class="args">
+<dt>steps</dt><dd>List of steps in flowsheet. This can be any list of strings, but it is recommended to use the standard step names defined in <tt>idaes_fi.common.Steps</tt>. This argument is required.</dd>
 <dt>flowsheet_block</dt><dd>Name in model of flowsheet block</dd>
 <dt>report_db</dt><dd>If True or None, get default DB. If False, do not
                 use a report db. Otherwise, use value as the report
@@ -37,9 +38,8 @@ The `FlowsheetRunner` object is the focus of the API. It is usually constructed 
 #### Properties
 
 Key behaviors of the `FlowsheetRunner` object are controlled by setting properties. 
-* The following propertiees are required or recommended to set:
+* The following properties are required or recommended to set:
     * **main** _(required)_. This is a reference to the function mentioned above in (2), which takes the `FlowsheetRunner` instance as its first argument and runs the flowsheet. This function can take any additional position or keyword arguments. This should be assigned before the call to `run_flowsheet()`, typically at module scope right after the main function is defined.
-    * **steps** _(recommended)_. List of all steps, in correct order, that will be in the `FlowsheetRunner.main` function. This allows the FI to know in advance the step names, so it can display them in the extension. Otherwise the UI will have to guess at and/or show minimal step names.
     * **model** _(required, but not before running)_. The value of the Pyomo model must be assigned to this attribute in `FlowsheetRunner.main` during the first step of the flowsheet (typically called "build" or using the constant `Steps.build`). This allows for actions triggered at the end of each step to inspect and report on the state of the model.
     * **solve_result** _(recommended)_. Set this property to the return value of the Pyomo/IDAES `solver.solve()` call. If this is done, the solve result will be automatically extracted and visible in the Flowsheet Inspector interface. This property can be set multiple times in a single step (internally, it is stored as a list), and set in multiple steps (each step's solves are stored separately), so in other words it can be set any time a solve occurs in the code.
 * The following properties are optional or read-only:
@@ -67,13 +67,12 @@ from idaes_fi import FlowsheetRunner, Steps
 # Create FlowsheetRunner object
 #--------------------------------------
 
-runner = FlowsheetRunner()
-runner.steps = [
+runner = FlowsheetRunner(steps=[
     Steps.build,
     Steps.initialize,
     Steps.set_solver,
     Steps.solve_optimization,
-]
+])
 
 #--------------------------------------
 # Existing code to build, solve, etc.
@@ -108,17 +107,11 @@ def main(runner):
 
     return model
 
-
-#--------------------------------------
-# Set main function in FlowsheetRunner
-#--------------------------------------
-
-runner.main = main
-
-
 #--------------------------------------
 # Run the flowsheet
 #--------------------------------------
+
+runner.main = main
 
 if __name__ == "__main__":
     model = runner.run_flowsheet()
@@ -189,8 +182,7 @@ Steps.solve_optimization
 ```
 
 The `runner.steps` list records the steps used by the flowsheet and lets FI
-actions interpret the run. It does not execute those steps; execution remains
-the responsibility of `main`.
+actions interpret the run. It does not execute those steps.
 
 ## Reports and console output
 

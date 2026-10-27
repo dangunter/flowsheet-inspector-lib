@@ -5,7 +5,7 @@ import pytest
 
 from idaes_fi import api
 from idaes.logger import set_log_tags
-from . import demo_flowsheet
+from idaes_fi.tests import demo_flowsheet
 
 
 @pytest.mark.unit
@@ -15,8 +15,6 @@ def test_null():
 
     runner = api.NullFlowsheetRunner()
     runner.main = say_hello
-    runner.steps = ("a", "b", "c")
-    assert runner.steps == ("a", "b", "c")
     runner.model = "not really a model"
     assert runner.model == "not really a model"
     result = runner.run_flowsheet()
@@ -25,7 +23,8 @@ def test_null():
 
 @pytest.mark.unit
 def test_log_level():
-    runner = api.FlowsheetRunner(report_db=False, quiet=True)
+    steps = ("a", "b")
+    runner = api.FlowsheetRunner(steps=steps, report_db=False, quiet=True)
 
     def noop(runner):
         runner.step_begin("a")
@@ -33,7 +32,6 @@ def test_log_level():
         runner.step_begin("b")
 
     runner.main = noop
-    runner.steps = ("a", "b")
     runner.log_level = logging.INFO
     set_log_tags(("ui",))
     runner.run_flowsheet()
@@ -41,7 +39,8 @@ def test_log_level():
 
 @pytest.mark.unit
 def test_last_step(tmp_path):
-    runner = api.FlowsheetRunner(report_db=tmp_path / "runner.db")
+    steps = ("a", "b", "c", "d")
+    runner = api.FlowsheetRunner(steps=steps, report_db=tmp_path / "runner.db")
     where = None
 
     def mymain(runner):
@@ -76,13 +75,16 @@ def test_demo_flowsheet(tmp_path, quiet, report_db):
     print(f"quiet={quiet} report_db={report_db}")
     if report_db:
         report_db = tmp_path / "test_api_demo_flowsheet_db.sqlite"
-    runner = api.FlowsheetRunner(report_db=report_db, quiet=quiet)
-    runner.steps = (
-        api.Steps.build,
-        api.Steps.set_scaling,
-        api.Steps.initialize,
-        api.Steps.set_solver,
-        api.Steps.solve_optimization,
+    runner = api.FlowsheetRunner(
+        steps=(
+            api.Steps.build,
+            api.Steps.set_scaling,
+            api.Steps.initialize,
+            api.Steps.set_solver,
+            api.Steps.solve_optimization,
+        ),
+        report_db=report_db,
+        quiet=quiet,
     )
     runner.main = fs_main
     runner.run_flowsheet()

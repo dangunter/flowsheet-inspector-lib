@@ -1,109 +1,36 @@
-# Command-line interface
+# Commands
 
-The package provides the `ifi` command through the `idaes_fi.commands:main`
-entry point. Use `ifi --help` to see the top-level command list.
+## Console command-line interface 
 
-## Database commands
+The package provides the `ifi` command for console usage
+(the mnemonic is **I**DAES **F**lowsheet **I**nspector).
+Use `ifi --help` to see the top-level command list.
 
-`db migrate` migrates the default report database to the latest schema:
+Global options:
+<dl class="args">
+<dt>--json/-J</dt>
+<dd>Where appropriate, show JSON output instead of plain text output. Useful for interfacing with scripts and other automated processes.</dd>
+</dl>
 
-```console
-ifi db migrate
-```
+Subcommands:
+<dl class="args">
+<dt>db</dt><dd>Inspect or modify the database</dd>
+<dt>flowsheet</dt><dd>Inspect or run flowsheets</dd>
+</dl>
 
-Use a specific database file with `--file` (or `-f`):
+These subcommands have further sub-subcommands.
+Use `ifi <subcommand> --help` to see help for each subcommand and
+a list of their sub-subcommands and, finally, `ifi <subcommand> <sub-subcommand> --help` to see options for the actual function to execute.
+For example: `ifi db migrate --help` will show options for the database
+migration function.
 
-```console
-ifi db migrate --file path/to/report.sqlite
-```
+## Programmatic usage
 
-`db info` prints the database filename and schema version:
+Each sub-command available through the `ifi` command can also be found in the `idaes_fi.commands` module, where the name of the function is simply the subcommand and sub-subcommand name separated by an underscore.
+For example: `ifi db migrate` &rarr; <tt>idaes_fi.commands.db_migrate()</tt>.
 
-```console
-ifi db info --file path/to/report.sqlite
-```
+## Python interpreter usage
 
-If `--file` is omitted, the configured default report database is used.
+Finally, to run the commands using the Python interpreter's `-c` option, which avoids having to invoke the `ifi` command through the shell, you can import the module and use the functions directly.
 
-## Flowsheet commands
-
-Run a wrapped flowsheet from a Python module:
-
-```console
-ifi flowsheet run --module my_flowsheet
-```
-
-Run a flowsheet from a Python file instead:
-
-```console
-ifi flowsheet run --file path/to/my_flowsheet.py
-```
-
-If a module or file defines more than one flowsheet runner, select one with
-`--name` (or `-n`):
-
-```console
-ifi flowsheet run --module my_flowsheet --name FS2
-```
-
-Stop after a named step with `--last-step` (or `-l`):
-
-```console
-ifi flowsheet run --module my_flowsheet --last-step initialize
-```
-
-Set the flowsheet runner's logging level with `--level` (or `-L`). Level names
-are case-insensitive. Supported names are `NOTSET`, `DEBUG`, `INFO`, `WARN`,
-`WARNING`, `ERROR`, `FATAL`, and `CRITICAL`; the default is `INFO`.
-
-The `--level` option belongs to the `flowsheet` command, so place it before
-the `run` subcommand:
-
-```console
-ifi flowsheet --level DEBUG run --module my_flowsheet
-```
-
-List the steps defined by a wrapped flowsheet with `flowsheet steps`:
-
-```console
-ifi flowsheet steps --module my_flowsheet
-ifi flowsheet steps --file path/to/my_flowsheet.py --name FS2
-```
-
-Both flowsheet subcommands require either `--module` or `--file`.
-
-## Programmatic use
-
-The command functions can be called directly from Python without constructing
-an argument list or invoking a subprocess.
-
-```python
-from idaes_fi.commands import db_info, db_migrate, flowsheet_run, flowsheet_steps
-
-# Use the default report database, or pass a database path.
-info = db_info("path/to/report.sqlite")
-print(info["version"])
-db_migrate("path/to/report.sqlite")
-
-# Run or inspect a flowsheet from a module.
-flowsheet_run(
-    module="my_flowsheet",
-    name="FS2",
-    last_step="initialize",
-)
-steps = flowsheet_steps(module="my_flowsheet", name="FS2")
-print(steps)
-```
-
-For a Python file, use `file` instead of `module`:
-
-```python
-from idaes_fi.commands import flowsheet_run
-
-flowsheet_run(file="path/to/my_flowsheet.py", level=20)  # logging.INFO
-```
-
-`flowsheet_run()` accepts a numeric logging level, such as the constants in
-Python's `logging` module. It runs the selected flowsheet and returns `None`;
-`flowsheet_steps()` returns the runner's list of step names; and `db_info()`
-returns a dictionary containing `file` and `version`.
+Note that formatting of the output is done by the CLI wrapper, so this may need to be recreated. For example, to print out DB info as JSON you can run: `python -c "import json; from idaes_fi.commands import *; print(json.dumps(db_info(), cls=PathJSONEncoder))"`. The PathJSONEncoder class is defined in the *commands* module in order to handle Python's *pathlib.Path* objects. 

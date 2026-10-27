@@ -6,8 +6,10 @@ MAIN_COMMAND.
 """
 
 import argparse
+import json
 import logging
 import sys
+from pathlib import Path
 from typing import Optional
 
 from idaes_fi.api import init_report_db, load_module, get_module_flowsheet_runners
@@ -60,17 +62,21 @@ def _db_migrate_cli(args) -> bool:
 
 def db_info(filename: Optional[str] = None):
     db = _get_db(filename)
-    return {"file": db.filename, "version": db.version}
+    rdb_ver = ReportDB.MAJOR_VERSION, ReportDB.MINOR_VERSION
+    return {"file": db.filename, "version": db.version, "lib_version": rdb_ver}
 
 
 def _db_info_cli(args) -> bool:
     info = db_info(args.file)
-    w = max((len(s) for s in info))
-    for k, v in info.items():
-        name = k.rjust(w)
-        if k == "version":
-            v = f"{v[0]}.{v[1]}"
-        print(f"{name}: {v}")
+    if args.json:
+        json.dump(info, sys.stdout, indent=2, cls=PathJSONEncoder)
+    else:
+        w = max((len(s) for s in info))
+        for k, v in info.items():
+            name = k.rjust(w)
+            if k.endswith("version"):
+                v = f"{v[0]}.{v[1]}"
+            print(f"{name}: {v}")
     return True
 
 
@@ -82,7 +88,11 @@ def _db_info_cli(args) -> bool:
 def _load_flowsheet(modulename: str | None, filename: str | None, varname: str | None):
     if modulename is None and filename is None:
         raise ValueError("Cannot load flowsheet: both module and file are empty")
-    mod = load_module(modulename, filename)
+    try:
+        mod = load_module(modulename, filename)
+    except ImportError as err:
+        which = modulename if modulename else filename
+        raise ValueError(f"Could not import flowsheet '{which}': {err}")
     runners = get_module_flowsheet_runners(mod)
     modname = mod.__name__
     if not runners:
@@ -144,14 +154,28 @@ def _flowsheet_steps_cli(args):
     if args.module is None and args.file is None:
         print("Must set --module or --file")
         return False
-    steps = flowsheet_steps(module=args.module, file=args.file, name=args.name)
-    print(", ".join(steps))
+    try:
+        steps = flowsheet_steps(module=args.module, file=args.file, name=args.name)
+    except Exception as err:
+        print(f"Could not load flowsheet to extract steps.\nReason: {err}")
+        return False
+    if args.json:
+        json.dump(steps, sys.stdout)
+    else:
+        print(", ".join(steps))
     return True
 
 
 # ----
 # Utilities
 # ----
+
+
+class PathJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Path):
+            return str(obj)
+        return super().default(obj)
 
 
 class LogLevelAction(argparse.Action):
@@ -188,6 +212,13 @@ class LogLevelAction(argparse.Action):
 def main():
     p = argparse.ArgumentParser(f"{PKG}")
     p_subp = p.add_subparsers()
+    # global options
+    p.add_argument(
+        "--json",
+        "-J",
+        action="store_true",
+        help="Format output as JSON (default=plain text)",
+    )
 
     # add 'db' subcommand and sub-subcommands
     dbp = p_subp.add_parser("db")

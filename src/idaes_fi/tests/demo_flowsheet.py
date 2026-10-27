@@ -39,14 +39,16 @@ import idaes.logger as idaeslog
 
 from idaes_fi import FlowsheetRunner, Steps
 
-runner = FlowsheetRunner(report_db=False)
-runner.steps = [
-    Steps.build,
-    Steps.set_scaling,
-    Steps.initialize,
-    Steps.set_solver,
-    Steps.solve_optimization,
-]
+runner = FlowsheetRunner(
+    steps=[
+        Steps.build,
+        Steps.set_scaling,
+        Steps.initialize,
+        Steps.set_solver,
+        Steps.solve_optimization,
+    ],
+    report_db=False,
+)
 
 
 def build_flowsheet():

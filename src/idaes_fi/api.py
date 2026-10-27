@@ -53,9 +53,15 @@ class _LastStep(Exception):
 
 
 class _FlowsheetRunnerInterface(ABC):
-    def __init__(self):
+    def __init__(self, steps: list[str] = None):
         self._model = None
-        self._steps = None
+        if steps is None:
+            raise ValueError("Argument for steps must be a list of strings")
+        try:
+            self._steps = list(steps)
+        except (ValueError, TypeError) as e:
+            raise ValueError("Argument for steps must be a list of strings")
+        self._steps = steps
         self._main = None
         self._last_step = None
         self._finalize = None
@@ -103,11 +109,7 @@ class _FlowsheetRunnerInterface(ABC):
     def _get_steps(self) -> list[str]:
         pass
 
-    @abstractmethod
-    def _set_steps(self, s: list[str]):
-        pass
-
-    steps = property(_get_steps, _set_steps)
+    steps = property(_get_steps, None)
 
     def _get_last_step(self) -> str:
         return self._last_step
@@ -134,6 +136,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
     def __init__(
         self,
+        steps: list[str],
         flowsheet_block: str = "fs",
         report_db: Optional[bool | str | Path | ReportDB] = True,
         quiet: bool = False,
@@ -141,6 +144,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         """Constructor.
 
         Args:
+            steps: List of names of the steps in the flowsheet.
             flowsheet_block: Name in model of flowsheet block
             report_db: If True or None, get default DB. If False, do not
                        use a report db. Otherwise, use value as the report
@@ -148,7 +152,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             quiet: If True, do not print anything to the console (logging
                    may still occur, but that is controlled separately)
         """
-        super().__init__()
+        super().__init__(steps=steps)
         self._quiet = quiet
         if report_db is False:
             self._report_db = None
@@ -207,15 +211,10 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
     model = property(_get_model, _set_model)
 
     def _get_steps(self) -> list[str]:
-        if self._steps is None:
-            return []
         return self._steps
 
-    def _set_steps(self, s: list[str]):
-        self._steps = s
-
     # Get/set the list of steps
-    steps = property(_get_steps, _set_steps)
+    steps = property(_get_steps, None)
 
     def _get_main(self) -> Optional[Callable]:
         return self._main
@@ -445,13 +444,10 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
 
 class NullFlowsheetRunner(_FlowsheetRunnerInterface):
-    """Abstract (cannot be instantiated) interface for the
-    FlowsheetRunner class. For use of the Null object design
-    pattern; see NullFlowsheetRunner class.
-    """
+    """Empty flowsheet runner that does nothing."""
 
     def __init__(self, *args, **kwargs):
-        super().__init__()
+        super().__init__([""])
 
     def run_flowsheet(self, *args, **kwargs) -> object:
         if self._main:
@@ -483,12 +479,9 @@ class NullFlowsheetRunner(_FlowsheetRunnerInterface):
     def _get_steps(self) -> list[str]:
         return self._steps
 
-    def _set_steps(self, s: list[str]):
-        self._steps = s
-
     report_db_file = property(_get_report_db_file, None)
     model = property(_get_model, _set_model)
-    steps = property(_get_steps, _set_steps)
+    steps = property(_get_steps, None)
     main = property(_get_main, _set_main)
 
 
