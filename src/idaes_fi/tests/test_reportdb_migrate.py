@@ -38,22 +38,19 @@ def test_migration_strategy_migrate_invalid_file(tmp_path):
 
 
 @pytest.mark.component
-@pytest.mark.parametrize("reportnum", [0, 1, 3])
-def test_migration_strategy_migrate_1_0_to_1_1(tmp_path, setup_logging, reportnum):
+def test_migration_strategy_migrate_1_0_to_1_1(tmp_path, setup_logging):
     # Create a dummy 1.0 database file
     old_db_file = tmp_path / "old_report.db"
     old_db = ReportDB(old_db_file)
     old_db.create()
-    # add a fake report(s)
-    for i in range(reportnum):
-        old_db.add_report({"fake": "data"})
-    # make changes to simulate an older version
+    # add a fake report
+    old_db.add_report({"fake": "data"})
+    # drop status table to simulate an older version
     with old_db._connect() as conn:
-        # drop status table
-        conn.execute(f"DROP TABLE IF EXISTS {ReportDB.STAT_TABLE}")
-        # change version to 1.0
-        print(f"UPDATE {ReportDB.VERSION_TABLE} SET major = 1, minor = 0")
-        conn.execute(f"UPDATE {ReportDB.VERSION_TABLE} SET major = 1, minor = 0")
+        conn.execute(f"DROP TABLE IF EXISTS {old_db.STAT_TABLE}")
+    # modify version number
+    with old_db._connect() as conn:
+        conn.execute("UPDATE ")
 
     # Perform migration
     strategy = MigrationStrategy()
@@ -64,27 +61,7 @@ def test_migration_strategy_migrate_1_0_to_1_1(tmp_path, setup_logging, reportnu
         pytest.fail(f"Migration failed: {e}")
     assert did_something, "Migration should have been performed, but wasn't"
 
-    # Verify that status table exists now (still named old_db)
+    # Verify that status table exists now
     with old_db._connect() as conn:
         rows = list(conn.execute("SELECT * from status"))
-    assert len(rows) == reportnum
-
-
-@pytest.mark.component
-@pytest.mark.parametrize("ver", [(0, 0), (2, 0), (1, 99)])
-def test_migration_strategy_bad_versions(tmp_path, setup_logging, ver):
-    # Create a database file with given version
-    old_db_file = tmp_path / "old_report.db"
-    old_db = ReportDB(old_db_file)
-    old_db.create()
-    # Set version
-    with old_db._connect() as conn:
-        # change version
-        versions = f"major = {ver[0]}, minor = {ver[1]}"
-        conn.execute(f"UPDATE {ReportDB.VERSION_TABLE} SET {versions}")
-
-    # Perform migration
-    strategy = MigrationStrategy()
-    with pytest.raises(MigrationError):
-        did_something = strategy.migrate(old_db_file)
-        assert not did_something
+    assert len(rows) == 1

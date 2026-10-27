@@ -3,6 +3,31 @@
 The package provides the `ifi` command through the `idaes_fi.commands:main`
 entry point. Use `ifi --help` to see the top-level command list.
 
+* Root command: `ifi [options]`
+    - Options:
+        - `--json/-J`. Where appropriate, show JSON output instead of
+          plain text output. Useful for interfacing with scripts and other
+          automated processes.
+* Database commands: `ifi db <subcommand> [options]`
+    - `ifi db info`: Get database information
+        - Examples:
+            - `ifi db info`: Show information as readable text
+            - `ifi --json db info`: Show information as JSON
+            - `ifi db info -f my_db.sqlite`: Use specified database instead
+              of default database.
+        - Python command: 
+        ```{python}
+        import json
+        from idaes_fi.commands import *
+        print(json.dumps(db_info(), cls=PathJSONEncoder))
+        ```
+    - `ifi db migrate`: Migrate database to newest version
+
+
+
+
+OLD 
+
 ## Database commands
 
 `db migrate` migrates the default report database to the latest schema:
