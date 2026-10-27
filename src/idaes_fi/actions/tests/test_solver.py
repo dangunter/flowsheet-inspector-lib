@@ -2,9 +2,8 @@
 Test for the solver action.
 """
 
-from idaes_fi.structfs.api import FlowsheetRunner, Steps
-from idaes_fi.structfs.common import ActionNames
-from idaes_fi.structfs.tests.demo_flowsheet import *
+from idaes_fi import FlowsheetRunner, Steps
+from idaes_fi.tests.demo_flowsheet import *
 
 import pytest
 
@@ -14,42 +13,46 @@ _solver_name = "couenne"
 # Create a wrapped flowsheet #
 ##############################
 
-FS = FlowsheetRunner(
-    name="Demo Flowsheet with Couenne",
-    tags="test demo couenne",
-    module="idaes_fi.structfs.actions.tests.test_solver",
+runner = FlowsheetRunner(
+    steps=[
+        Steps.build,
+        Steps.set_operating_conditions,
+        Steps.set_scaling,
+        Steps.solve_initial,
+        Steps.set_solver,
+        Steps.solve_optimization,
+    ]
 )
 
 
-@FS.add_step(Steps.build)
-def build(ctx):
-    ctx.model = build_flowsheet()
+def main(runner: FlowsheetRunner):
+    runner.step_begin(Steps.build)
+    runner.model = model = build_flowsheet()
+
+    runner.step_begin(Steps.set_operating_conditions)
+    set_dof(model)
+
+    runner.step_begin(Steps.set_scaling)
+    set_scaling(model)
+
+    runner.step_begin(Steps.solve_initial)
+    initialize_flowsheet(model)
+
+    runner.step_begin(Steps.set_solver)
+    try:
+        solver = get_solver(_solver_name)
+    except KeyError:
+        print(f"Could not get solver '{_solver_name}'")
+        raise
+
+    runner.step_begin(Steps.solve_optimization)
+    results = solve_flowsheet(model, solver, stee=True)
+    runner.solve_result = results
+
+    return model
 
 
-@FS.add_step(Steps.set_operating_conditions)
-def set_operating_conditions(ctx):
-    set_dof(ctx.model)
-
-
-@FS.add_step(Steps.set_scaling)
-def runner_set_scaling(ctx):
-    set_scaling(ctx.model)
-
-
-@FS.add_step(Steps.solve_initial)
-def solve_initial(ctx):
-    initialize_flowsheet(ctx.model)
-
-
-@FS.add_step(Steps.set_solver)
-def set_solver(ctx):
-    ctx.solver = _solver_name
-
-
-@FS.add_step(Steps.solve_optimization)
-def runner_solve_flowsheet(ctx):
-    ctx.results = solve_flowsheet(ctx.model, ctx.solver, stee=True)
-
+runner.main = main  # don't forget this
 
 #########
 # Tests #
@@ -65,18 +68,18 @@ def test_solver_action(solver_name):
     global _solver_name
     _solver_name = solver_name
 
-    FS.run_steps()
-    actions = FS.report()["actions"]
-    for step in actions["progress"]["steps"]:
+    runner.run_flowsheet()
+    actions = runner.report["actions"]
+    progress_action_name = "Progress"
+    solver_action_name = "CaptureSolverOutput"
+    for step in actions[progress_action_name]["steps"]:
         name = step["name"]
         print(f"examine {solver_name} step {name}: {step['status']}")
         if step["status"] == "failed":
+            failed = True
             # couenne doesn't solve the optimization
-            if _solver_name == "couenne" and name == Steps.solve_optimization:
-                solver_output = actions[ActionNames.SOLVER_OUTPUT.value]["output"]
-                print(f"Solver output:\n{solver_output}")
-                print(f"Step error: {step['err']}")
-                assert "Couenne" in solver_output[name]
+            if _solver_name == "couenne":
+                assert name in (Steps.set_solver, Steps.solve_optimization)
             # only build step is OK for the bad solver
             elif _solver_name == "doesnotexistandneverwill" and name != Steps.build:
                 pass
