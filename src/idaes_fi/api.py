@@ -66,6 +66,7 @@ class _FlowsheetRunnerInterface(ABC):
         self._last_step = None
         self._finalize = None
         self._results = []
+        self._report = None
 
     @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
@@ -129,6 +130,14 @@ class _FlowsheetRunnerInterface(ABC):
             self._results.append(value)
 
     solve_result = property(_get_results, _set_results)
+
+    def _get_report(self) -> dict[str, dict]:
+        return self._report
+
+    def _set_report(self, value: dict[str, dict]):
+        self._report = value
+
+    report = property(_get_report, _set_report)
 
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
@@ -251,6 +260,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             Diagnostics,
             Timer,
             UnitDofChecker,
+            Progress,
         )
 
         dof_steps = [Steps.build, Steps.solve_initial, Steps.solve_optimization]
@@ -268,6 +278,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
                 (StreamTable, ()),
                 (Timer, ()),
                 (GitHash, (self._caller_file,)),
+                (Progress, ()),
             )
         ]
 
@@ -304,6 +315,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             else:
                 self._log("end", error=err)
                 run_error = err
+                self._failed_step = self._current_step
             self._current_step = None
 
         self._flowsheet_end(error=run_error)
@@ -316,7 +328,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self.step_end()
 
         # setup
-        self._current_step = name
+        self._current_step, self._failed_step = name, None
         self._log("begin")
 
         # run actions
@@ -346,7 +358,15 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
         self._current_step = None
 
+    def _step_failed(self, name, err):
+        for action in self.actions:
+            action.step_failed(name, err)
+
     def _flowsheet_end(self, error=None):
+        # cleanup from error, if necessary
+        if error:
+            self._step_failed(self._failed_step, error)
+
         # close out last step, if needed
         if self._current_step is not None:
             self._flowsheet_ended = True
@@ -361,6 +381,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self._save_report(report, error)
         elif not self._quiet:
             self._print_report(report, error)
+        self._report = report
 
         self._log("end")
 

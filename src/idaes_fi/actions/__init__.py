@@ -26,6 +26,7 @@ from .stream_table import StreamTable
 from .solver import CaptureSolverOutput, Diagnostics, GetSolverResults
 from .timer import Timer
 from .unit_dof_checker import UnitDofChecker
+from .progress import Progress
 
 __all__ = [
     GitHash,
@@ -38,4 +39,5 @@ __all__ = [
     GetSolverResults,
     Timer,
     UnitDofChecker,
+    Progress,
 ]

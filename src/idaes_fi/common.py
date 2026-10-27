@@ -37,20 +37,6 @@ DEFAULT_SOLVER_NAME = "ipopt"
 RESULT_FLOWSHEET_KEY = "__fi"
 
 
-class ActionNames(Enum):
-    DIAGNOSTICS = "diagnostics"
-    DOF = "degrees_of_freedom"
-    MERMAID_DIAGRAM = "mermaid_diagram"
-    MODEL_REPORTS = "model_reports"
-    MODEL_VARIABLES = "model_variables"
-    SOLVER_OUTPUT = "solver_output"
-    SOLVER_RESULTS = "solver_results"
-    STREAM_TABLE = "stream_table"
-    TIMINGS = "timings"
-    GIT_HASH = "git_hash"
-    PROGRESS = "progress"
-
-
 class Steps:
     """Names of steps so that editor autocomplete, etc., will help
     to avoid typos.
