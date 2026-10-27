@@ -88,7 +88,11 @@ def _db_info_cli(args) -> bool:
 def _load_flowsheet(modulename: str | None, filename: str | None, varname: str | None):
     if modulename is None and filename is None:
         raise ValueError("Cannot load flowsheet: both module and file are empty")
-    mod = load_module(modulename, filename)
+    try:
+        mod = load_module(modulename, filename)
+    except ImportError as err:
+        which = modulename if modulename else filename
+        raise ValueError(f"Could not import flowsheet '{which}': {err}")
     runners = get_module_flowsheet_runners(mod)
     modname = mod.__name__
     if not runners:
@@ -150,7 +154,11 @@ def _flowsheet_steps_cli(args):
     if args.module is None and args.file is None:
         print("Must set --module or --file")
         return False
-    steps = flowsheet_steps(module=args.module, file=args.file, name=args.name)
+    try:
+        steps = flowsheet_steps(module=args.module, file=args.file, name=args.name)
+    except Exception as err:
+        print(f"Could not load flowsheet to extract steps.\nReason: {err}")
+        return False
     if args.json:
         json.dump(steps, sys.stdout)
     else:
