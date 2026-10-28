@@ -5,7 +5,7 @@ Tests for stream table action
 import pytest
 
 from .. import stream_table as ST
-from idaes_fi.structfs.api import FlowsheetRunner, FlowsheetRunner
+from idaes_fi import FlowsheetRunner
 
 
 @pytest.mark.unit
@@ -59,7 +59,7 @@ def test_report_none_data():
 @pytest.mark.component
 def test_full_stream_names():
     """Test that stream names are fully qualified in the report."""
-    from idaes_fi.structfs.tests.demo_flowsheet import build_flowsheet
+    from idaes_fi.tests.demo_flowsheet import build_flowsheet
     from pyomo.network import Arc
 
     # create a flowsheet

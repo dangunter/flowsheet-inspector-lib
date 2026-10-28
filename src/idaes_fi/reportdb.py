@@ -213,7 +213,7 @@ class ReportDB:
         Args:
             drop: If ``True``, drop the existing reports table before creating
                 it again.
-            exist_ok: If `True` it is ok if the table exists
+            exist_ok: If `True` it is ok if the DB exists
 
         Returns:
             self, for chaining

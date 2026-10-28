@@ -19,7 +19,7 @@
 
 from pathlib import Path
 import pytest
-from idaes_fi.structfs import common
+from idaes_fi import common
 
 MARKER = 1
 
@@ -51,7 +51,7 @@ def test_steps():
 
 @pytest.mark.unit
 def test_load_module():
-    module_name = "idaes_fi.structfs.tests.test_common"
+    module_name = "idaes_fi.tests.test_common"
     module_path = Path(__file__)
     print(f"module name={module_name} path={module_path}")
 
@@ -89,7 +89,7 @@ TEST_DIR = Path(__file__).parent
             [
                 "--fs",
                 # cwd is source directory
-                "idaes_fi.structfs.tests.demo_flowsheet_structured",
+                "idaes_fi.tests.demo_flowsheet_structured",
             ],
             True,
         ),
@@ -106,7 +106,7 @@ TEST_DIR = Path(__file__).parent
         (
             [
                 "--fs",
-                "idaes_fi.structfs.tests.demo_flowsheet_structured_multi",
+                "idaes_fi.tests.demo_flowsheet_structured_multi",
                 "--attr",
                 "FS",
             ],
@@ -116,7 +116,7 @@ TEST_DIR = Path(__file__).parent
         (
             [
                 "--fs",
-                "idaes_fi.structfs.tests.demo_flowsheet_structured_multi",
+                "idaes_fi.tests.demo_flowsheet_structured_multi",
                 "--attr",
                 "NO",
             ],
@@ -142,7 +142,7 @@ TEST_DIR = Path(__file__).parent
         (
             [
                 "--fs",
-                "idaes_fi.structfs.tests.test_common",
+                "idaes_fi.tests.test_common",
             ],
             False,
         ),

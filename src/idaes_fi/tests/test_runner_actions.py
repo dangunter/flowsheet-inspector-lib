@@ -41,7 +41,7 @@ from ..actions import (
     UnitModelReport,
 )
 from . import flash_flowsheet
-from ...gitutil import git_head_hash
+from ..gitutil import git_head_hash
 
 
 @pytest.fixture

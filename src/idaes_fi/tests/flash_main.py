@@ -25,9 +25,6 @@ from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import
 )
 from idaes.models.unit_models import Flash
 
-from idaes_fi.structfs import fi_main
-
-
 def build():
     m = ConcreteModel()
     m.fs = FlowsheetBlock(dynamic=False)
@@ -54,7 +51,6 @@ def initialize(m):
 ### end basic Flash flowsheet code
 
 
-@fi_main()
 def my_main():
     """Create and solve Flash flowsheet"""
 

@@ -17,20 +17,40 @@
 #################################################################################
 """
 Import functions from demo flowsheet, call them in a main()
-function decorated with @fi_main
+function driven by the lightweight FlowsheetRunner API.
 """
 
-from .. import fi_main
+from .. import FlowsheetRunner, Steps
 from .demo_flowsheet import *
 
 
-@fi_main(name="Demo Flowsheet")
-def main():
+def main(dbfile=None):
+    runner = FlowsheetRunner(
+        steps=[
+            Steps.build,
+            Steps.set_scaling,
+            Steps.initialize,
+            Steps.set_solver,
+            Steps.solve_optimization,
+        ],
+        report_db=dbfile if dbfile is not None else False,
+    )
+    runner.main = _main
+    return runner.run_flowsheet()
+
+
+def _main(runner):
     model = build_flowsheet()
+    runner.step_begin(Steps.build)
+    runner.model = model
+    runner.step_begin(Steps.set_scaling)
     set_dof(model)
     set_scaling(model)
+    runner.step_begin(Steps.initialize)
     initialize_flowsheet(model)
+    runner.step_begin(Steps.set_solver)
     solver = get_solver("ipopt")
+    runner.step_begin(Steps.solve_optimization)
     results = solve_flowsheet(model, solver, stee=True)
     return model, results
 

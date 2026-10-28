@@ -16,13 +16,13 @@
 #
 #################################################################################
 """
-Tests for the `fi-db` command-line tool (`idaes_fi.structfs.tool.db_tools`).
+Tests for the `fi-db` command-line tool (`idaes_fi.db_tools`).
 """
 
 import pytest
 
 from ..reportdb import ReportDB
-from ..tool import db_tools
+from .. import db_tools
 
 
 @pytest.fixture

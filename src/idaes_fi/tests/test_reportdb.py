@@ -21,7 +21,7 @@ Tests for reportdb module
 
 import json
 import pytest
-from idaes_fi.structfs import reportdb
+from idaes_fi import reportdb
 
 
 @pytest.fixture

@@ -17,7 +17,7 @@
 #################################################################################
 """
 Tools for looking at and testing the 'report' DB
-implemented by module `idaes_fi.structfs.reportdb`.
+implemented by module `idaes_fi.reportdb`.
 """
 
 import argparse
@@ -34,8 +34,8 @@ import time
 
 import pandas as pd
 
-from idaes_fi.structfs.reportdb import ReportDB, DBError
-from idaes_fi.structfs.runner import Runner
+from idaes_fi.api import init_report_db
+from idaes_fi.reportdb import ReportDB, DBError
 
 _log = logging.getLogger(__name__)
 
@@ -76,7 +76,7 @@ def _info_command(args):
     """
     dbfile = args.db
     if dbfile is None:
-        db = Runner.get_default_report_db()
+        db = init_report_db()
     else:
         db = ReportDB(dbfile)
     try:
@@ -181,7 +181,7 @@ def _view_command(args):
     """
     dbfile = args.db
     if dbfile is None:
-        db = Runner.get_default_report_db()
+        db = init_report_db()
     else:
         db = ReportDB(dbfile)
 

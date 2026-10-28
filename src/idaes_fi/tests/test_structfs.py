@@ -16,21 +16,16 @@
 #
 #################################################################################
 """
-Tests for structfs __init__.py
+Tests for the top-level package exports.
 """
 
 import pytest
 
-from idaes_fi import structfs
+from idaes_fi import api
 
 
 @pytest.mark.unit
 def test_exports():
-    assert structfs.FlowsheetRunner
-    assert structfs.Runner
+    assert api.FlowsheetRunner
     with pytest.raises(AttributeError):
-        structfs.foo
-
-    assert structfs.fi_main
-
-    structfs.get_default_report_db()
+        api.foo

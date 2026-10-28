@@ -207,8 +207,15 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             return None
         return Path(self._report_db.filename)
 
+    def _set_report_db_file(self, f: Path | str | ReportDB):
+        if isinstance(f, ReportDB):
+            self._report_db = f
+        else:
+            self._report_db = ReportDB(filename=f)
+            self._report_db.create(exist_ok=True)
+
     #: Get report database file path
-    report_db_file = property(_get_report_db_file, None)
+    report_db_file = property(_get_report_db_file, _set_report_db_file)
 
     def _get_model(self) -> object:
         return self._model
