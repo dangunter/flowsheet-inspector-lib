@@ -67,6 +67,7 @@ class _FlowsheetRunnerInterface(ABC):
         self._finalize = None
         self._results = []
         self._report = None
+        self._actions = []
 
     @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
@@ -139,6 +140,11 @@ class _FlowsheetRunnerInterface(ABC):
 
     report = property(_get_report, _set_report)
 
+    def _get_actions(self) -> list[Action]:
+        return self._actions
+
+    actions = property(_get_actions, None)
+
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
     """For using your flowsheet with the Flowsheet Inspector."""
@@ -189,7 +195,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
         caller = inspect.currentframe().f_back
         self._caller_file = caller.f_globals.get("__file__") if caller else None
-        self.actions: list[Action] = self._default_actions()
+        self._actions = self._default_actions()
 
         self._init_log()
 

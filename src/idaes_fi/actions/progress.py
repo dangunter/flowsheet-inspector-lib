@@ -64,25 +64,30 @@ class Progress(Action):
         super().__init__(runner, **kwargs)
 
     def before_run(self):
-        self._steps = []
+        self._step_info = []
 
     def before_step(self, step_name: str):
         """Record progress before a step is run."""
         t = time.time()
         info = StepInfo(name=step_name, status=Status.RUNNING, start=t)
-        self._steps.append(info)
+        self._step_info.append(info)
 
     def after_step(self, step_name: str):
         """Record progress after a step is run."""
         t = time.time()
-        info = self._steps[-1]
+        info = self._step_info[-1]
         info.status = Status.COMPLETED
         info.dur = t - info.start
 
     def step_failed(self, step_name: str, error: Exception):
         """Record progress after a step fails."""
+        if len(self._step_info) == 0:
+            self._get_logger().warning(
+                f"Step '{step_name}' did not begin before it failed."
+            )
+            return  # do nothing
         t = time.time()
-        info = self._steps[-1]
+        info = self._step_info[-1]
         info.status = Status.FAILED
         info.dur = t - info.start
         info.err = str(error)
@@ -94,4 +99,4 @@ class Progress(Action):
         return tb_list
 
     def report(self) -> Report:
-        return self.Report(steps=self._steps)
+        return self.Report(steps=self._step_info)
