@@ -29,7 +29,7 @@ from pyomo.environ import units as pyunits
 from pyomo.opt import SolverResults, SolverStatus, TerminationCondition
 from pyomo.opt.results.container import ScalarData
 
-from . import flash_flowsheet, hda_flowsheet
+from idaes_fi import FlowsheetRunner, Steps
 from ..actions import (
     MermaidDiagram,
     Timer,
@@ -40,16 +40,8 @@ from ..actions import (
     GetSolverResults,
     UnitModelReport,
 )
-from . import flash_flowsheet
 from ..gitutil import git_head_hash
-
-
-@pytest.fixture
-def set_tmp_db(tmp_path):
-    dbpath = tmp_path / "test_runner_actions.db"
-    flash_flowsheet.FS.set_report_db(dbfile=dbpath)
-    print(f"setting temp db = {dbpath}")
-    return dbpath
+from . import demo_flowsheet
 
 
 class FakeRunner:
@@ -60,37 +52,42 @@ class FakeRunner:
         return ["step1", "step2", "step3"]
 
 
-class FakeScalar:
-    def __init__(self):
-        value = 1.0
+def flowsheet_main(runner: FlowsheetRunner):
+    runner.step_begin(Steps.build)
+    runner.model = demo_flowsheet.build_flowsheet()
 
-    def get_value(self):
-        return self.value
+
+@pytest.fixture
+def tmp_runner(tmp_path):
+    runner = FlowsheetRunner(
+        steps=[Steps.build], report_db=tmp_path / "test_runner_actions.db"
+    )
+    runner.main = flowsheet_main
+    return runner
 
 
 @pytest.mark.unit
-def test_class_timer():
-    runner = FakeRunner()
-    timer = Timer(runner)
+def test_class_timer(tmp_runner):
+    timer = Timer(tmp_runner)
 
     # fake run
     timer.before_run()
-    for step in runner.list_steps():
+    for step in tmp_runner.steps:
         timer.before_step(step)
         timer.after_step(step)
     timer.after_run()
     report = timer.report()
 
     # check report
-    for step in runner.list_steps():
+    for step in tmp_runner.steps:
         assert report.timings[step] >= 0
     assert report.run_time >= 0
 
 
 @pytest.mark.unit
-def test_git_hash_action():
+def test_git_hash_action(tmp_runner):
     file_path = Path(__file__)
-    action = GitHash(FakeRunner(), file_path)
+    action = GitHash(tmp_runner, file_path)
 
     assert action.report().hash is None
 
@@ -101,28 +98,27 @@ def test_git_hash_action():
 
 
 @pytest.mark.unit
-def get_test_hash_action_bad(tmp_path):
+def get_test_hash_action_bad(tmp_runner, tmp_path):
     # no such path
     file_path = tmp_path / "foo"
-    action = GitHash(FakeRunner(), file_path)
+    action = GitHash(tmp_runner, file_path)
     action.after_run()
     assert action.report().hash is None
     # path but no git
-    action = GitHash(FakeRunner(), tmp_path)
+    action = GitHash(tmp_runner, tmp_path)
     action.after_run()
     assert action.report().hash is None
 
 
 @pytest.mark.unit
-def test_unit_dof_action_base(set_tmp_db):
-    rn = flash_flowsheet.FS
-    rn.reset()
+def test_unit_dof_action_base(tmp_runner):
+    rn = tmp_runner
 
     def check_step(name, data):
         print(f"check_step {name} data: {data}")
-        assert "fs.flash" in data
-        if name == "solve_initial":
-            assert data["fs.flash"] == 0
+        assert "fs.F03" in data
+        if name == Steps.build:
+            assert data["fs.F03"] == 0
 
     def check_run(step_dof, model_dof):
         assert model_dof == 0
@@ -131,20 +127,19 @@ def test_unit_dof_action_base(set_tmp_db):
         "check_dof",
         UnitDofChecker,
         "fs",
-        ["build", "solve_initial"],
+        [Steps.build],
         check_step,
         check_run,
     )
 
-    rn.run_steps("build", "solve_initial")
+    rn.run_flowsheet()
 
     pprint.pprint(rn.get_action("check_dof").get_dof())
 
 
 @pytest.mark.unit
-def test_unit_dof_action_getters(set_tmp_db):
-    rn = flash_flowsheet.FS
-    rn.reset()
+def test_unit_dof_action_getters(tmp_runner):
+    rn = tmp_runner
 
     aname = "check_dof"
     rn.add_action(
@@ -153,7 +148,7 @@ def test_unit_dof_action_getters(set_tmp_db):
         "fs",
         ["build", "solve_initial"],
     )
-    rn.run_steps()
+    rn.run_flowsheet()
 
     act = rn.get_action(aname)
 
@@ -169,17 +164,11 @@ def test_unit_dof_action_getters(set_tmp_db):
 
 
 @pytest.mark.unit
-def test_dof_report(set_tmp_db):
-    rn = flash_flowsheet.FS
-    rn.reset()
-    check_steps = (
-        "build",
-        "set_operating_conditions",
-        "initialize",
-        "solve_initial",
-    )
+def test_dof_report(tmp_runner):
+    rn = tmp_runner
+    check_steps = (Steps.build,)
     rn.add_action("dof", UnitDofChecker, "fs", check_steps)
-    rn.run_steps()
+    rn.run_flowsheet()
     report = rn.get_action("dof").report()
     assert report
     report_data = report.model_dump()
@@ -191,11 +180,10 @@ def test_dof_report(set_tmp_db):
 
 
 @pytest.mark.unit
-def test_mermaid_report(set_tmp_db):
-    rn = flash_flowsheet.FS
-    rn.reset()
+def test_mermaid_report(tmp_runner):
+    rn = tmp_runner
     rn.add_action("diagram", MermaidDiagram)
-    rn.run_steps()
+    rn.run_flowsheet()
     action = rn.get_action("diagram")
     action.set_model_root("fs")
     report = action.report()
@@ -208,26 +196,23 @@ def test_mermaid_report(set_tmp_db):
 
 
 @pytest.mark.unit
-def test_stream_table_action_create(set_tmp_db):
-    obj = StreamTable(flash_flowsheet.FS)
+def test_stream_table_action_create(tmp_runner):
+    obj = StreamTable(tmp_runner)
     assert obj
 
 
 @pytest.mark.unit
-def test_stream_table_action_report(tmp_path):
-    rn = hda_flowsheet.FS  # need a flowsheet with Arcs
-    rn.reset()
-    rn.set_report_db(dbfile=tmp_path / "stream_table.db")
-    rn._actions = {}  # no other actions
-    rn.add_action("streamtable", StreamTable)
-    rn.build()  # don't need to solve
-    report = rn.get_action("streamtable").report()
+def test_stream_table_action_report(tmp_runner):
+    tmp_runner.model = demo_flowsheet.build_flowsheet()
+    action = StreamTable(tmp_runner)
+    action.after_run()
+    report = action.report()
     print(f"report: {report}")
     # perform some basic checks on the contents
     assert report
     assert report.index[0].startswith("flow_mol")
     assert report.units[0] == "mole / second"
-    assert "fs.s03" in report.columns
+    assert "fs.s01" in report.columns
     assert len(report.columns) == len(report.data[0])
     assert len(report.data) == len(report.index)
     v1 = report.data[0][0]
@@ -418,11 +403,9 @@ def test_get_solver_results_optimal_termination():
 
 
 @pytest.mark.integration
-def test_unit_model_report(set_tmp_db):
-    struct_fs = flash_flowsheet.FS
-    struct_fs.build()
-    runner = FakeRunner()
-    runner.model = struct_fs.model
+def test_unit_model_report(tmp_runner):
+    tmp_runner.run_flowsheet()
+    runner = tmp_runner
     rpt_action = UnitModelReport(runner)
     rpt_action.after_step("step1")
 
@@ -431,9 +414,8 @@ def test_unit_model_report(set_tmp_db):
     print(rpt.model_dump_json(indent=4))
 
     last = rpt.step_reports[rpt.last_step].reports
-    # expect 1 component since only flash has performance
-    assert len(last) == 1
-    for expected in ("fs.flash",):
+    assert len(last) == 3
+    for expected in ("fs.M01", "fs.H02", "fs.F03"):
         assert expected in last
 
     # allow empty performance now
@@ -441,9 +423,9 @@ def test_unit_model_report(set_tmp_db):
     rpt_action.after_step("step1")
     rpt = rpt_action.report()
     last = rpt.step_reports[rpt.last_step].reports
-    # should get 2 components, one of them with empty performance data
-    assert len(last) == 2
-    for expected in ("fs.flash", "fs.flash.split"):
+    # allow empty performance now
+    assert len(last) == 3
+    for expected in ("fs.M01", "fs.H02", "fs.F03"):
         assert expected in last
 
 
