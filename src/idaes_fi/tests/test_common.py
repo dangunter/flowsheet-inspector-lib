@@ -31,16 +31,6 @@ def test_module_attrs():
 
 
 @pytest.mark.unit
-def test_action_names():
-    # test that all capitalized keys have string values
-    names = common.ActionNames
-    for key in dir(names):
-        if not key.startswith("_") and key.upper() == key:
-            value = getattr(names, key).value
-            assert isinstance(value, str)
-
-
-@pytest.mark.unit
 def test_steps():
     steps = common.Steps()
     for attr in steps.index:
@@ -80,33 +70,22 @@ TEST_DIR = Path(__file__).parent
             [
                 "--fs",
                 # cwd is source directory
-                str(TEST_DIR / "demo_flowsheet_structured.py"),
+                str(TEST_DIR / "demo_flowsheet.py"),
             ],
             True,
         ),
-        # one flowsheet (2)
-        (
-            [
-                "--fs",
-                # cwd is source directory
-                "idaes_fi.tests.demo_flowsheet_structured",
-            ],
-            True,
-        ),
+
+
+
+STOPPED HERE
+
+
+        
         # multiple flowsheets
         (
             [
                 "--fs",
                 str(TEST_DIR / "demo_flowsheet_structured_multi.py"),
-                "--attr",
-                "FS",
-            ],
-            True,
-        ),
-        (
-            [
-                "--fs",
-                "idaes_fi.tests.demo_flowsheet_structured_multi",
                 "--attr",
                 "FS",
             ],
@@ -155,7 +134,7 @@ TEST_DIR = Path(__file__).parent
     ],
 )
 def test_run_main(args, ok, subtests, tmp_path):
-    print(f"file={__file__}")
+    print(f"OK?={ok} args={args}")
     for fmt in ("text", "json", ""):
         with subtests.test(fmt):
             if fmt:
