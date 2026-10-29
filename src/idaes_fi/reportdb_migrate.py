@@ -105,6 +105,7 @@ class MigrationStrategy:
         # create empty DB in temporary file, which
         # will be the target of the migration
         tmp = NamedTemporaryFile("w+")
+        tmp.close()  # Windows can't open the same file twice(!!)
         tmp_db = ReportDB(tmp.name)
         tmp_db.create()
 

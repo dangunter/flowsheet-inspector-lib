@@ -41,16 +41,19 @@ def test_migration_strategy_migrate_invalid_file(tmp_path):
 def test_migration_strategy_migrate_1_0_to_1_1(tmp_path, setup_logging):
     # Create a dummy 1.0 database file
     old_db_file = tmp_path / "old_report.db"
+    old_db_file.open("w").close()
     old_db = ReportDB(old_db_file)
     old_db.create()
     # add a fake report
     old_db.add_report({"fake": "data"})
-    # drop status table to simulate an older version
+
+    # simulate an older version in two steps
+    # 1) drop status table
     with old_db._connect() as conn:
         conn.execute(f"DROP TABLE IF EXISTS {old_db.STAT_TABLE}")
-    # modify version number
+    # 2) modify version number
     with old_db._connect() as conn:
-        conn.execute("UPDATE ")
+        conn.execute(f"UPDATE {old_db.VERSION_TABLE} SET major = 1, minor = 0")
 
     # Perform migration
     strategy = MigrationStrategy()

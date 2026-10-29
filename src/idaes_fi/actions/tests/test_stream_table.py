@@ -8,8 +8,13 @@ from .. import stream_table as ST
 from idaes_fi import FlowsheetRunner
 
 
+@pytest.fixture
+def runner():
+    return FlowsheetRunner(steps=[], report_db=False)
+
+
 @pytest.mark.unit
-def test_smoke():
+def test_smoke(runner):
     # should fail with no runner obj
     with pytest.raises(Exception):
         obj = ST.StreamTable(runner=None)
@@ -17,12 +22,12 @@ def test_smoke():
     with pytest.raises(Exception):
         obj = ST.StreamTable(runner="runner")
     # should succeed with correct runner obj
-    obj = ST.StreamTable(runner=FlowsheetRunner())
+    obj = ST.StreamTable(runner=runner)
 
 
 @pytest.mark.unit
-def test_report_empty():
-    obj = ST.StreamTable(runner=FlowsheetRunner())
+def test_report_empty(runner):
+    obj = ST.StreamTable(runner=runner)
     report = obj.report()
     assert report.index == []
     assert report.units == []
@@ -31,9 +36,9 @@ def test_report_empty():
 
 
 @pytest.mark.unit
-def test_report_none_data():
+def test_report_none_data(runner):
     # set up a stream table with some None values in the data
-    obj = ST.StreamTable(runner=FlowsheetRunner())
+    obj = ST.StreamTable(runner=runner)
     obj._stream_table = {
         "columns": ["stream1", "stream2", "stream3"],
         "index": ["var1", "var2"],
@@ -57,14 +62,13 @@ def test_report_none_data():
 
 
 @pytest.mark.component
-def test_full_stream_names():
+def test_full_stream_names(runner):
     """Test that stream names are fully qualified in the report."""
     from idaes_fi.tests.demo_flowsheet import build_flowsheet
     from pyomo.network import Arc
 
     # create a flowsheet
-    runner = FlowsheetRunner()
-    runner._context.model = build_flowsheet()
+    runner.model = build_flowsheet()
 
     # generate stream table report
     obj = ST.StreamTable(runner=runner)
