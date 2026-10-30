@@ -20,6 +20,7 @@ Database migration.
 """
 
 # stdlib
+import json
 import logging
 from pathlib import Path
 import shutil
@@ -148,16 +149,9 @@ class MigrationStrategy:
     #  name should be migrate_<old_major>_<old_minor>_to_<new_major>_<new_minor>
     # ---
 
-    def migrate_1_0_to_1_1(self, old_db: ReportDB, new_filename: str):
-        hdr = f"Migrate ({old_db.filename}) 1.0 -> ({new_filename}) 1.1"
-        # Copy data in report table without modification
-        _log.debug(f"{hdr}: copy report data")
-        for table in (ReportDB.RPT_TABLE,):
-            self._copy_rows(old_db.filename, new_filename, table, transform_func=None)
-
-        # Populate status table with one row for each report
-        _log.debug(f"{hdr}: populate status table")
-        with sqlite3.connect(old_db.filename) as old_conn:
+    @staticmethod
+    def _populate_status_table(old_filename, new_filename):
+        with sqlite3.connect(old_filename) as old_conn:
             with sqlite3.connect(new_filename) as new_conn:
                 for row in old_conn.execute(f"SELECT id FROM {ReportDB.RPT_TABLE}"):
                     q9 = ", ".join(["?"] * 9)
@@ -176,6 +170,82 @@ class MigrationStrategy:
                         ),
                     )
 
+    _rename_actions_map = {
+        "solver_output": "CaptureSolverOutput",
+        "solver_results": "GetSolverResults",
+        "diagnostics": "Diagnostics",
+        "degrees_of_freedom": "UnitDofChecker",
+        "mermaid_diagram": "MermaidDiagram",
+        "model_reports": "UnitModelReport",
+        "model_variables": "ModelVariables",
+        "stream_table": "StreamTable",
+        "timings": "Timer",
+        "git_hash": "GitHash",
+        "progress": "Progress",
+    }
+
+    @classmethod
+    def _rename_report_keys(cls, table: str, row: tuple):
+        if table == ReportDB.RPT_TABLE:
+            i = 6
+            report_bytes = row[i]
+            # convert UTF-8 encoded JSON to dict
+            report = json.loads(report_bytes.decode("utf-8"))
+            actions = report["actions"]
+            # rename action keys
+            orig_keys = list(actions.keys())
+            for k in orig_keys:
+                k2 = cls._rename_actions_map[k]
+                actions[k2] = actions[k]
+            for k in orig_keys:
+                del actions[k]
+            # convert dict back to UTF-8 encoded JSON
+            new_report_bytes = json.dumps(report).encode("utf-8")
+            row = list(row)
+            row[i] = new_report_bytes
+        return row
+
+    def migrate_1_0_to_1_1(self, old_db: ReportDB, new_filename: str):
+        hdr = f"Migrate ({old_db.filename}) 1.0 -> ({new_filename}) 1.1"
+
+        # Copy data in report table without modification
+        _log.debug(f"{hdr}: copy report data")
+        self._copy_rows(
+            old_db.filename, new_filename, ReportDB.RPT_TABLE, transform_func=None
+        )
+
+        # Populate status table with one row for each report
+        _log.debug(f"{hdr}: populate status table")
+        self._populate_status_table(old_db.filename, new_filename)
+
+    def migrate_1_0_to_1_2(self, old_db: ReportDB, new_filename: str):
+        hdr = f"Migrate ({old_db.filename}) 1.0 -> ({new_filename}) 1.2"
+
+        # Rename report keys
+        _log.debug(f"{hdr}: copy report data")
+        self._copy_rows(
+            old_db.filename,
+            new_filename,
+            ReportDB.RPT_TABLE,
+            transform_func=self._rename_report_keys,
+        )
+
+        # Populate status table with one row for each report
+        _log.debug(f"{hdr}: populate status table")
+        self._populate_status_table(old_db.filename, new_filename)
+
+    def migrate_1_1_to_1_2(self, old_db: ReportDB, new_filename: str):
+        hdr = f"Migrate ({old_db.filename}) 1.1 -> ({new_filename}) 1.2"
+
+        # Rename report keys
+        _log.debug(f"{hdr}: copy report data")
+        self._copy_rows(
+            old_db.filename,
+            new_filename,
+            ReportDB.RPT_TABLE,
+            transform_func=self._rename_report_keys,
+        )
+
     # ---
     # Helper functions
     # ---
@@ -190,7 +260,7 @@ class MigrationStrategy:
                 for row in src_conn.execute(f"SELECT * FROM {table_name}"):
                     n = len(row)
                     if transform_func is not None:
-                        row = transform_func(row)
+                        row = transform_func(table_name, row)
                     tgt_conn.execute(
                         f"INSERT INTO {table_name} VALUES ({','.join(['?'] * n)})", row
                     )
