@@ -77,3 +77,27 @@ mypy_path = "src"
 strict = true
 warn_unused_configs = true
 show_error_codes = true
+
+# ----
+# Code coverage
+# ----
+[tool.coverage.run]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test/*",
+    "*/test/*",
+]
+source = ["src/idaes_fi"]
+
+[tool.coverage.report]
+omit = [
+    "tests/*",
+    "*/tests/*",
+    "test/*",
+    "*/test/*",
+    "copy_template.py",
+]
+
+[tool.coverage.html]
+directory = "coverage_html"
