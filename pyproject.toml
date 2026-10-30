@@ -81,6 +81,7 @@ show_error_codes = true
 # ----
 # Code coverage
 # ----
+
 [tool.coverage.run]
 omit = [
     "tests/*",
@@ -88,7 +89,7 @@ omit = [
     "test/*",
     "*/test/*",
 ]
-source = ["src/idaes_fi"]
+source_pkgs = ["idaes_fi"]
 
 [tool.coverage.report]
 omit = [
@@ -98,6 +99,12 @@ omit = [
     "*/test/*",
     "copy_template.py",
 ]
+fail_under = 85
+show_missing = true
 
 [tool.coverage.html]
 directory = "coverage_html"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
