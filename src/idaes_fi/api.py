@@ -553,6 +553,11 @@ def init_report_db() -> ReportDB:
     return db
 
 
+# ----
+# Utility functions
+# ----
+
+
 def get_report_db_path() -> Path:
     """Compute and return the default path to the report database."""
     data_dir, _, _ = get_data_directory()
@@ -569,7 +574,20 @@ def get_module_flowsheet_runners(m: ModuleType) -> dict[str, _FlowsheetRunnerInt
     return result
 
 
-def load_module(name, path):
+def load_module(name: Optional[str] = None, path: Optional[Path] = None) -> ModuleType:
+    """Load a Python module from the given name or file path.
+    Exactly one of `name` or `path` must be provided.
+
+    Args:
+        name: Name of the module to load. (Optional)
+        path: Path to the Python file to load as a module. (Optional)
+
+    Returns:
+        The loaded module.
+
+    Raises:
+        ImportError: If the module cannot be loaded from the given name or path.
+    """
     if name:
         module = importlib.import_module(name)
     else:
@@ -586,15 +604,40 @@ def load_module(name, path):
 def run_flowsheet(
     module_name: Optional[str] = None,
     path: Optional[Path] = None,
-    flowsheet_name: Optional[str] = "FS",
+    flowsheet_name: Optional[str] = None,
 ):
-    """Run specified flowsheet (or only one) in specified module."""
-    module = load_module(module_name, path)
+    """Run specified flowsheet (or only one) in specified module.
+    Exactly one of `name` or `path` must be provided.
+
+    Args:
+        module_name: Name of the module to load. (Optional)
+        path: Path to the Python file to load as a module. (Optional)
+        flowsheet_name: Name of the flowsheet to run.
+            Only needed if there are multiple flowsheets in the module. (Optional)
+
+    Raises:
+        ValueError: If no FlowsheetRunner-s are found in the module, or if multiple are found but no flowsheet_name is specified.
+        KeyError: If the specified flowsheet_name does not exist in the module.
+    """
+    if module_name is None and path is None:
+        raise ValueError("Either module_name or path must be specified")
+    try:
+        module = load_module(module_name, path)
+    except FileNotFoundError as e:
+        raise ValueError(f"Cannot load module from path '{path}'") from e
+    except ImportError as e:
+        raise ValueError(f"Cannot load module '{module_name}'") from e
+
     runners = get_module_flowsheet_runners(module)
     if len(runners) == 0:
         raise ValueError(f"No FlowsheetRunner-s found in module '{module.__name__}'")
     if len(runners) == 1:
         runner = list(runners.values())[0]
+    elif flowsheet_name is None:
+        raise ValueError(
+            f"Multiple FlowsheetRunner-s found in module '{module.__name__}', "
+            "but no flowsheet_name was specified"
+        )
     else:
         runner = runners.get(flowsheet_name, None)
         if runner is None:

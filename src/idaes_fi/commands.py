@@ -89,7 +89,7 @@ def _load_flowsheet(modulename: str | None, filename: str | None, varname: str |
     if modulename is None and filename is None:
         raise ValueError("Cannot load flowsheet: both module and file are empty")
     try:
-        mod = load_module(modulename, filename)
+        mod = load_module(name=modulename, path=filename)
     except ImportError as err:
         which = modulename if modulename else filename
         raise ValueError(f"Could not import flowsheet '{which}': {err}")
