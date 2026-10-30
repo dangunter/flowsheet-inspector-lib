@@ -612,8 +612,8 @@ def run_flowsheet(
     Args:
         module_name: Name of the module to load. (Optional)
         path: Path to the Python file to load as a module. (Optional)
-        flowsheet_name: Name of the flowsheet to run.
-            Only needed if there are multiple flowsheets in the module. (Optional)
+        flowsheet_name: Name of the variable with the FlowsheetRunner object to run.
+            Only needed if there are multiple FlowsheetRunner-s in the module. (Optional)
 
     Raises:
         ValueError: If no FlowsheetRunner-s are found in the module, or if multiple are found but no flowsheet_name is specified.

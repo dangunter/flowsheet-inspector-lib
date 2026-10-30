@@ -209,7 +209,7 @@ class LogLevelAction(argparse.Action):
 # ----
 
 
-def main():
+def main(*cmdline):
     p = argparse.ArgumentParser(f"{PKG}")
     p_subp = p.add_subparsers()
     # global options
@@ -262,7 +262,10 @@ def main():
     cmd.add_argument("--name", "-n", help="Flowsheet variable name (if >1)")
     cmd.set_defaults(func=_flowsheet_steps_cli)
 
-    args = p.parse_args()
+    if cmdline:
+        args = p.parse_args(*cmdline)
+    else:
+        args = p.parse_args()
 
     # e.g. "ifi flowsheet" without a further subcommand
     if not hasattr(args, "func"):
