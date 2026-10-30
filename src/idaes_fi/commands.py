@@ -263,6 +263,12 @@ def main():
     cmd.set_defaults(func=_flowsheet_steps_cli)
 
     args = p.parse_args()
+
+    # e.g. "ifi flowsheet" without a further subcommand
+    if not hasattr(args, "func"):
+        p.print_help()
+        return 1
+
     success = args.func(args)
 
     return 0 if success else 1
