@@ -34,6 +34,7 @@ from ..compute_diagnostics import (
 )
 from ..action_base import Action
 from idaes_fi import FlowsheetRunner, Steps
+from idaes_fi.common import is_solve_step
 
 
 class SolverActionBase(Action):
@@ -49,24 +50,7 @@ class SolverActionBase(Action):
         super().__init__(runner, **kwargs)
 
     def is_solve_step(self, name: str) -> bool:
-        """Whether step `name` is the solve step.
-
-        This will return True for any step in the standard solve steps
-        or any user-defined step that starts with "solve_".
-
-        Args:
-            name: step name
-
-        Returns:
-            True if it is the solve step, otherwise False
-        """
-        # standard solve steps
-        if name in (Steps.solve_initial, Steps.solve_optimization):
-            return True
-        # user-defined steps can use a naming convention starting with "solve_"
-        if name.startswith("solve_"):
-            return True
-        return False
+        return is_solve_step(name)
 
 
 class CaptureSolverOutput(SolverActionBase):

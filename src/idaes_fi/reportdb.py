@@ -150,7 +150,7 @@ class ReportDB:
     @contextmanager
     def _connect(self):
         if _log.isEnabledFor(logging.DEBUG):
-            _log.debug("Connecting to SQLite database: {self._filename}")
+            _log.debug(f"Connecting to SQLite database: {self._filename}")
         try:
             conn = sqlite3.connect(self._filename)
         except sqlite3.OperationalError as err:
@@ -162,7 +162,7 @@ class ReportDB:
         finally:
             conn.close()
             if _log.isEnabledFor(logging.DEBUG):
-                _log.debug("Closed connection to SQLite database: {self._filename}")
+                _log.debug(f"Closed connection to SQLite database: {self._filename}")
 
     def test_connection(self) -> None:
         """Test database connection.
@@ -551,6 +551,19 @@ class ReportDB:
 
         # parse report into dict before returning it
         return json.loads(data.decode("utf-8"))
+
+    def get_last_run_id(self, **kwargs) -> int | None:
+        """Return the newest run ID matching the provided filters."""
+        tags = kwargs.pop("tags", None)
+        with self._connect() as conn:
+            stmt = f"SELECT MAX(id) FROM {self.RPT_TABLE}"
+            if tags:
+                stmt += self._where(kwargs, tags=tags)
+            try:
+                run_id = conn.execute(stmt).fetchone()[0]
+            except sqlite3.OperationalError as err:
+                raise DBError(err)
+            return run_id
 
     def _where(self, fltr, tags=None):
         expr = []

@@ -18,6 +18,8 @@ from idaes_fi.reportdb_migrate import MigrationStrategy, MigrationError
 
 __author__ = "Dan Gunter (LBNL)"
 
+logging.basicConfig(level=logging.DEBUG)
+
 # Package name, for help/descriptions
 PKG = "IDAES Flowsheet Inspector"
 
@@ -43,7 +45,7 @@ def _get_db(filename: Optional[str] = None) -> ReportDB:
 def db_migrate(filename: Optional[str] = None):
     db = _get_db(filename)
     ms = MigrationStrategy()
-    ms.migrate(db.filename)
+    return ms.migrate(db.filename)
 
 
 def _db_migrate_cli(args) -> bool:

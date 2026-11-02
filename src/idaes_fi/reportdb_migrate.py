@@ -191,13 +191,18 @@ class MigrationStrategy:
             report_bytes = row[i]
             # convert UTF-8 encoded JSON to dict
             report = json.loads(report_bytes.decode("utf-8"))
+            if not report:
+                return row
             actions = report["actions"]
             # rename action keys
             orig_keys = list(actions.keys())
+            delete_keys = []
             for k in orig_keys:
-                k2 = cls._rename_actions_map[k]
-                actions[k2] = actions[k]
-            for k in orig_keys:
+                if k in cls._rename_actions_map:
+                    k2 = cls._rename_actions_map[k]
+                    actions[k2] = actions[k]
+                    delete_keys.append(k)
+            for k in delete_keys:
                 del actions[k]
             # convert dict back to UTF-8 encoded JSON
             new_report_bytes = json.dumps(report).encode("utf-8")
