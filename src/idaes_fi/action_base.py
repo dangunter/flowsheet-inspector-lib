@@ -52,6 +52,7 @@ class Action(ABC):
         self.log = log
         self._dbg = self.log.isEnabledFor(logging.DEBUG)
         self._name = self.__class__.__name__
+        self._run_id = None
 
     def _get_logger(self):
         name = f"{__name__}.{self.__class__.__name__}"
@@ -112,3 +113,11 @@ class Action(ABC):
             Results as a Pydantic model or Python dict
         """
         return
+
+    def _get_run_id(self):
+        return self._run_id
+
+    def _set_run_id(self, value):
+        self._run_id = value
+
+    run_id = property(_get_run_id, _set_run_id)

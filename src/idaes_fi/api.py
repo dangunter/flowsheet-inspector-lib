@@ -311,8 +311,12 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._current_step = None
         self._log("begin")
 
+        # create a new (empty) report row
         if self._report_db:
             self._report_id = self._report_db.add_report({})
+            # let all the actions know the new report id
+            for action in self.actions:
+                action.run_id = self._report_id
 
         # before-run actions
         for action in self.actions:

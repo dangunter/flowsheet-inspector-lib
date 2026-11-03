@@ -85,18 +85,9 @@ class Progress(Action):
         super().__init__(runner, **kwargs)
         self._reportdb = reportdb
         if self._reportdb is not None:
-            self._run_id = self._reportdb.get_last_run_id()
+            self.run_id = self._reportdb.get_last_run_id()
         else:
             self.log.warning("Progress action initialized without a report database.")
-            self._run_id = None
-
-    @property
-    def run_id(self):
-        return self._run_id
-
-    @run_id.setter
-    def run_id(self, value):
-        self._run_id = value
 
     def before_run(self):
         self._step_info = []

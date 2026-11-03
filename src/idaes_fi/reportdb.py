@@ -284,6 +284,7 @@ class ReportDB:
         **target_kw,
     ) -> int:
         """Insert a report and its metadata into the database.
+        Report may be in a new row, or update to an existing one.
 
         Args:
             data: Report payload as a JSON string or dictionary.
