@@ -21,7 +21,7 @@ runner = FlowsheetRunner(
         Steps.solve_initial,
         Steps.set_solver,
         Steps.solve_optimization,
-    ]
+    ],
 )
 
 
@@ -63,11 +63,12 @@ runner.main = main  # don't forget this
 @pytest.mark.parametrize(
     "solver_name", ["ipopt", "couenne", "doesnotexistandneverwill"]
 )
-def test_solver_action(solver_name):
+def test_solver_action(solver_name, tmp_path):
     """Test the solver action."""
     global _solver_name
     _solver_name = solver_name
 
+    runner.report_db_file = tmp_path / "report.db"
     runner.run_flowsheet()
     actions = runner.report["actions"]
     progress_action_name = "Progress"

@@ -60,9 +60,14 @@ def test_progress_flowsheet(tmp_path):
     db = tmp_path / "report.sqlite"
     runner = demo_flowsheet.runner
     runner.report_db_file = db
-    runner.main = progress_main
-    print(f"run demo flowsheet with temp db '{db}'")
-    runner.run_flowsheet()  # rest of checks are in this function
+    save_main = runner.main
+    try:
+        runner.main = progress_main
+        print(f"run demo flowsheet with temp db '{db}'")
+        runner.run_flowsheet()  # rest of checks are in this function
+    finally:
+        # need to reset since this is a global object
+        runner.main = save_main
 
 
 def progress_main(runner: FlowsheetRunner):

@@ -24,7 +24,10 @@ import logging
 import sqlite3
 import time
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Optional, Union
+
+from idaes.config import get_data_directory
 
 __author__ = "Dan Gunter (LBNL)"
 
@@ -53,6 +56,8 @@ class ReportDB:
         KeyError: If any target keyword does not match a supported target
             column.
     """
+
+    DEFAULT_DB_FILENAME = "reportdb.sqlite"
 
     # for DB versioning
     # bump MINOR for backward-compatible schema changes (e.g. added tables or
@@ -584,3 +589,50 @@ class ReportDB:
         else:
             clause = ""  # nothing at all
         return clause
+
+
+## report db helper functions
+
+
+def get_report_db_path() -> Path:
+    """Compute and return the default path to the report database."""
+    data_dir, _, _ = get_data_directory()
+    return Path(data_dir) / ReportDB.DEFAULT_DB_FILENAME
+
+
+def init_report_db(create: bool = True) -> ReportDB:
+    """Initialize sqlite3 database instance used to record flowsheet
+    action reports.Try to create the database if it does not exist.
+
+    Args:
+        create (bool): Whether to create the database if it does not exist. Defaults to True.
+
+    Raises:
+        DBError: Cannot open/create report database
+    """
+    report_db_path = get_report_db_path()
+    report_dir = report_db_path.parent
+    if not report_dir.exists():
+        raise DBError(
+            "while trying to initialize report database: "
+            f"parent directory {report_dir} does not exist"
+        )
+    db = ReportDB(report_db_path)
+    created = report_db_path.exists()
+    if not created:
+        if not create:
+            raise DBError(
+                "while trying to initialize report database: "
+                f"report database '{report_db_path}' does not exist "
+                "and creation is disabled"
+            )
+        try:
+            db.create()
+            db.test_connection()
+        except sqlite3.Error as err:
+            raise DBError(
+                "while trying to create new report database "
+                f"'{report_db_path}': {err}"
+            )
+
+    return db

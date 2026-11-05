@@ -21,6 +21,7 @@ Tests for reportdb module
 
 import json
 import pytest
+from pathlib import Path
 from idaes_fi import reportdb
 
 
@@ -209,3 +210,9 @@ def test_status(tmpdb):
             # None stays NULL; booleans are stored as 0/1
             expect_solve_ok = None if solve_ok is None else int(solve_ok)
             assert rows[i][4] == expect_solve_ok
+
+
+@pytest.mark.unit
+def test_get_report_db_path():
+    path = reportdb.get_report_db_path()
+    assert isinstance(path, Path)

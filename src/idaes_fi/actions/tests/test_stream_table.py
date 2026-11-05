@@ -55,9 +55,9 @@ def test_report_none_data(runner):
         report = obj.report()
 
     # should succeed after converting data
-    print(f"@@raw data: {obj._stream_table['data']}")
+    print(f"stream tableraw data: {obj._stream_table['data']}")
     obj._stream_table["data"] = obj._convert_data(obj._stream_table["data"])
-    print(f"@@converted data: {obj._stream_table['data']}")
+    print(f"stream table converted data: {obj._stream_table['data']}")
     report = obj.report()
 
 

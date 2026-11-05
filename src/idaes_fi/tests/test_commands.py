@@ -21,6 +21,7 @@ Tests for the idaes_fi commands (.commands) module
 
 from idaes_fi import commands
 import sys
+from tempfile import NamedTemporaryFile
 
 import pytest
 

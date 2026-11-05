@@ -32,14 +32,10 @@ from types import ModuleType
 from typing import Callable, Optional
 
 # ext
-import sqlite3
 from pydantic import BaseModel
 
-# idaes-pse
-from idaes.config import get_data_directory
-
 # pkg
-from .reportdb import ReportDB, DBError
+from .reportdb import ReportDB, init_report_db
 from .action_base import Action
 from .common import Steps
 
@@ -187,20 +183,25 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
                 "report_db must be True/False/None, "
                 "a filename, or a ReportDB instance"
             )
-        if self._report_db:
-            self._report_db.test_connection()
-        self._report_id = None
-
         self._fs_name = flowsheet_block
 
         caller = inspect.currentframe().f_back
         self._caller_file = caller.f_globals.get("__file__") if caller else None
-        self._actions = self._default_actions()
 
         self._init_log()
 
+    def _reset(self):
+        """Reset the internal state of the flowsheet runner, so that
+        repeated calls to .run_flowsheet() behave correctly.
+        """
+        if self._report_db:
+            self._report_db.test_connection()
+        self._report_id = None
         self._completed_steps = []
         self._flowsheet_ended = False
+        self._current_step = None
+        self._model = None
+        self._actions = self._default_actions()
 
     def _init_log(self):
         self._fslog = logging.getLogger(__name__)
@@ -256,7 +257,6 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
 
     @log_level.setter
     def log_level(self, level: int):
-        print(f"@@ Set level {level}")
         self._fslog.setLevel(level)
 
     # End of properties
@@ -308,7 +308,8 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._save_args = args
         self._save_kwargs = kwargs
 
-        self._current_step = None
+        self._reset()  # reset internal state
+
         self._log("begin")
 
         # create a new (empty) report row
@@ -328,7 +329,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         except Exception as err:
             if isinstance(err, _LastStep):
                 # special exception; not an error
-                self._log("end")
+                self._log("end (last step)")
             else:
                 self._log("end", error=err)
                 run_error = err
@@ -523,49 +524,9 @@ class NullFlowsheetRunner(_FlowsheetRunnerInterface):
     main = property(_get_main, _set_main)
 
 
-## report db helper functions
-
-
-def init_report_db() -> ReportDB:
-    """Initialize sqlite3 database instance used to record flowsheet
-    action reports.Try to create the database if it does not exist.
-
-    Raises:
-        DBError: Cannot open/create report database
-    """
-    report_dir = get_report_db_path()
-    if not report_dir.exists():
-        raise DBError(
-            "while trying to initialize report database: "
-            f"parent directory {report_dir} does not exist"
-        )
-    report_db_path = report_dir / "reportdb.sqlite"
-    created = report_db_path.exists()
-    db = ReportDB(report_db_path)
-    if not created:
-        try:
-            db.create()
-        except sqlite3.Error as err:
-            raise DBError(
-                "while trying to create new report database"
-                f" at {report_db_path}: {err}"
-            )
-
-    # test that DB is valid, raising DBError if not
-    db.test_connection()
-
-    return db
-
-
 # ----
 # Utility functions
 # ----
-
-
-def get_report_db_path() -> Path:
-    """Compute and return the default path to the report database."""
-    data_dir, _, _ = get_data_directory()
-    return Path(data_dir)
 
 
 def get_module_flowsheet_runners(m: ModuleType) -> dict[str, _FlowsheetRunnerInterface]:
@@ -609,6 +570,7 @@ def run_flowsheet(
     module_name: Optional[str] = None,
     path: Optional[Path] = None,
     flowsheet_name: Optional[str] = None,
+    dbpath: Optional[Path | bool] = None,
 ):
     """Run specified flowsheet (or only one) in specified module.
     Exactly one of `name` or `path` must be provided.
@@ -618,6 +580,8 @@ def run_flowsheet(
         path: Path to the Python file to load as a module. (Optional)
         flowsheet_name: Name of the variable with the FlowsheetRunner object to run.
             Only needed if there are multiple FlowsheetRunner-s in the module. (Optional)
+        dbpath: Path to the database file. If not given, use default location.
+                If set to False, disable database usage. (Optional)
 
     Raises:
         ValueError: If no FlowsheetRunner-s are found in the module, or if multiple are found but no flowsheet_name is specified.
@@ -648,4 +612,14 @@ def run_flowsheet(
             raise KeyError(
                 f"No flowsheet '{flowsheet_name}' in module '{module.__name__}'"
             )
-    return runner.run_flowsheet()
+
+    if dbpath is not None:
+        runner.report_db_file = dbpath
+    elif dbpath is False:
+        runner.report_db_file = None
+
+    try:
+        result = runner.run_flowsheet()
+    except Exception as e:
+        raise
+    return result

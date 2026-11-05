@@ -538,6 +538,7 @@ def main(runner):
     # m.fs.F03.heat_duty.fix(1e6)
     # runner.solve_result = solve_flowsheet(m, solver, stee=True)
 
+    print(f"Demo flowsheet solved, returning model: {m}")
     return m
 
 

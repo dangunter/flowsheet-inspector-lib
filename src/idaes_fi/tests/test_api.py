@@ -32,6 +32,11 @@ from idaes_fi.tests import demo_flowsheet
 __author__ = "Dan Gunter (LBNL)"
 
 
+@pytest.fixture
+def tmpdb(tmp_path):
+    return tmp_path / "reportdb.sqlite"
+
+
 @pytest.mark.unit
 def test_null():
     def say_hello(runner):
@@ -140,12 +145,6 @@ def fs_main(runner):
 
 
 @pytest.mark.unit
-def test_get_report_db_path():
-    path = api.get_report_db_path()
-    assert isinstance(path, Path)
-
-
-@pytest.mark.unit
 def test_get_module_flowsheet_runners():
     from idaes_fi.tests import demo_flowsheet
 
@@ -175,25 +174,29 @@ def test_load_module():
 
 
 @pytest.mark.unit
-def test_run_flowsheet_bad():
+def test_run_flowsheet_bad(tmpdb):
     with pytest.raises(ValueError):
-        api.run_flowsheet(module_name=None, path=None)
+        api.run_flowsheet(module_name=None, path=None, dbpath=tmpdb)
     with pytest.raises(ValueError):
-        api.run_flowsheet(module_name=None, path="non_existent_file.py")
+        api.run_flowsheet(module_name=None, path="non_existent_file.py", dbpath=tmpdb)
     with pytest.raises(KeyError):
         api.run_flowsheet(
             module_name="idaes_fi.tests.demo_flowsheet",
             path=None,
             flowsheet_name="non_existent_flowsheet",
+            dbpath=tmpdb,
         )
     # there are multiple flowsheets..
     with pytest.raises(ValueError):
-        api.run_flowsheet(module_name="idaes_fi.tests.demo_flowsheet")
+        api.run_flowsheet(module_name="idaes_fi.tests.demo_flowsheet", dbpath=tmpdb)
+    return
 
 
 @pytest.mark.component
-def test_run_flowsheet_ok():
+def test_run_flowsheet_ok(tmpdb):
     model = api.run_flowsheet(
-        module_name="idaes_fi.tests.demo_flowsheet", flowsheet_name="runner"
+        module_name="idaes_fi.tests.demo_flowsheet",
+        flowsheet_name="runner",
+        dbpath=tmpdb,
     )
     assert model is not None
