@@ -22,21 +22,23 @@ Constructs a basic flowsheet for a benzene-toluene system with a mixer, heater
 and flash unit.
 """
 
+# stdlib
+import time
+
+# third-party imports
 from pyomo.environ import ConcreteModel, TransformationFactory
 from pyomo.network import Arc
-
 from idaes.core import FlowsheetBlock
 from idaes.core.solvers import get_solver
 import idaes.core.util.scaling as iscale
-
 from idaes.core.util.initialization import propagate_state
 from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
     BTXParameterBlock,
 )
 from idaes.models.unit_models import Mixer, Heater, Flash
-
 import idaes.logger as idaeslog
 
+# local imports
 from idaes_fi import FlowsheetRunner, Steps
 
 _steps = (
@@ -49,7 +51,7 @@ _steps = (
 runner = FlowsheetRunner(steps=_steps, report_db=False)
 
 # for testing purposes, create another runner we never use
-runner2 = FlowsheetRunner(steps=_steps, report_db=False)
+crawler = FlowsheetRunner(steps=_steps, report_db=False)
 
 
 def build_flowsheet():
@@ -542,7 +544,49 @@ def main(runner):
     return m
 
 
+def twiddle_thumbs(sec: int):
+    try:
+        for i in range(sec):
+            time.sleep(1)
+            print(f"{sec - i} ", end="", flush=True)
+        print()
+    except KeyboardInterrupt:
+        print(" -- twiddlus interruptus!")
+        raise
+
+
+def slow_main(runner):
+    runner.step_begin(Steps.build)
+    runner.model = m = build_flowsheet()
+
+    runner.step_begin(Steps.set_scaling)
+    set_scaling(m)
+    runner.step_end()
+
+    set_dof(m)
+
+    runner.step_begin(Steps.initialize)
+    initialize_flowsheet(m)
+    twiddle_thumbs(60)
+
+    runner.step_begin(Steps.set_solver)
+    solver = get_solver()
+
+    runner.step_begin(Steps.solve_optimization)
+    twiddle_thumbs(60)
+    runner.solve_result = solve_flowsheet(m, solver, stee=True)
+    twiddle_thumbs(60)
+
+    ## For testing: make it fail!
+    # m.fs.F03.heat_duty.fix(1e6)
+    # runner.solve_result = solve_flowsheet(m, solver, stee=True)
+
+    print(f"Demo flowsheet solved, returning model: {m}")
+    return m
+
+
 runner.main = main
+crawler.main = slow_main
 
 
 def banner(title: str, width: int):
