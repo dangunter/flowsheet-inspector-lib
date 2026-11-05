@@ -126,8 +126,8 @@ class Progress(Action):
             )
             return  # do nothing
         t = time.time()
-        info.solve_ok = False if is_solve_step(step_name) else None
         info = self._step_info[-1]
+        info.solve_ok = False if is_solve_step(step_name) else None
         info.status = Status.FAILED
         info.dur = t - info.start
         info.err = str(error)

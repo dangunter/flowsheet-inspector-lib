@@ -49,7 +49,7 @@ _steps = (
 runner = FlowsheetRunner(steps=_steps, report_db=False)
 
 # for testing purposes, create another runner we never use
-# runner2 = FlowsheetRunner(steps=_steps, report_db=False)
+runner2 = FlowsheetRunner(steps=_steps, report_db=False)
 
 
 def build_flowsheet():

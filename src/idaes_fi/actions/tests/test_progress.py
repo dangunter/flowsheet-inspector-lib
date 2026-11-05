@@ -61,7 +61,7 @@ def test_progress_flowsheet(tmp_path):
     runner = demo_flowsheet.runner
     runner.report_db_file = db
     runner.main = progress_main
-    print(f"demo flowsheet with temp db '{db}'")
+    print(f"run demo flowsheet with temp db '{db}'")
     runner.run_flowsheet()  # rest of checks are in this function
 
 
@@ -75,9 +75,11 @@ def progress_main(runner: FlowsheetRunner):
         else:
             # they should all be the same
             assert rid == a.run_id
-    # finish one step
+    # do build step
+    runner.step_begin(Steps.build)
     runner.model = demo_flowsheet.build_flowsheet()
-    runner.step_end(Steps.build)
+    # end build step (start next)
+    runner.step_begin(Steps.set_scaling)
     # double-check that run id is still the same
     for a in runner.actions:
         assert a.run_id is not None
@@ -91,8 +93,8 @@ def progress_main(runner: FlowsheetRunner):
             run_id = row[1]
             assert run_id == rid
             n += 1
-    # do another step
-    demo_flowsheet.step_end(Steps.set_scaling)
+    # start another step (end 2nd step)
+    runner.step_begin(Steps.initialize)
     # now there should be 2 rows with that run id
     with sqlite3.connect(runner.report_db_file) as conn:
         n = 0
