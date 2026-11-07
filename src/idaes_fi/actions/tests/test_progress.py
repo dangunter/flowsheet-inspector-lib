@@ -35,8 +35,28 @@ from idaes_fi.tests import demo_flowsheet
 def runner():
     r = SimpleNamespace()
     r._reportdb = SimpleNamespace()
-    r._reportdb.add_status = lambda *args, **kwargs: None
+    r._reportdb.add_status = lambda *args, **kwargs: capture_add_status(
+        r, *args, **kwargs
+    )
+    r._status_calls = []  # reset for each test
+    r._reportdb.get_last_run_id = lambda: 1
     return r
+
+
+def capture_add_status(*args, **kwargs):
+    print(f"add_status called with args={args}, kwargs={kwargs}")
+    runner = args[0] if args else None
+    if runner is not None and hasattr(runner, "_status_calls"):
+        runner._status_calls.append((args, kwargs))
+
+
+def get_last_status_kw(runner):
+    print(
+        f"status calls: {runner._status_calls if hasattr(runner, '_status_calls') else 'none'}"
+    )
+    if hasattr(runner, "_status_calls") and runner._status_calls:
+        return runner._status_calls[-1][1]
+    return None
 
 
 @pytest.mark.unit
@@ -110,3 +130,35 @@ def progress_main(runner: FlowsheetRunner):
             n += 1
 
     # that's it, we're done!
+
+
+def test_progress_solve_status(runner):
+
+    p = Progress(runner)
+
+    # solve optimal
+    p.before_run()
+    p.before_step("solve_step")
+    # simulate optimal solve
+    runner.optimal = True
+    p.after_step("solve_step")
+    assert p._step_info[-1].solve_ok is True
+    # check status that would have been added to DB
+    status = get_last_status_kw(runner)
+    assert status is not None and status["solve_ok"] is True
+
+    # solve not optimal
+    p.before_step("solve_step2")
+    runner.optimal = False
+    p.after_step("solve_step2")
+    assert p._step_info[-1].solve_ok is False
+    # check status that would have been added to DB
+    status = get_last_status_kw(runner)
+    assert status is not None and status["solve_ok"] is False
+
+    # not a solve step
+    p.before_step("non_solve_step")
+    p.after_step("non_solve_step")
+    assert p._step_info[-1].solve_ok is None
+    status = get_last_status_kw(runner)
+    assert status["solve_ok"] is None

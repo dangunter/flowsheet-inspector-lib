@@ -24,13 +24,10 @@ from __future__ import annotations
 # stdlib
 from abc import ABC, abstractmethod
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 # third party
 from pydantic import BaseModel
-
-if TYPE_CHECKING:
-    from .runner import Runner
 
 
 class Action(ABC):
@@ -39,7 +36,7 @@ class Action(ABC):
     by the `Runner` class.
     """
 
-    def __init__(self, runner: Runner, log: Optional[logging.Logger] = None):
+    def __init__(self, runner, log: Optional[logging.Logger] = None):
         """Constructor
 
         Args:

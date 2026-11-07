@@ -152,6 +152,7 @@ class GetSolverResults(SolverActionBase):
 
     def before_step(self, step_name: str) -> None:
         self._runner.solve_result = None
+        self._runner.optimal = None
 
     def after_step(self, step_name: str):
         """Action performed after the step."""
@@ -180,6 +181,8 @@ class GetSolverResults(SolverActionBase):
         # "unknown" rather than an error.
         try:
             optimal = bool(check_optimal_termination(r))
+            # propagate up to runner, so other actions can access this
+            self._runner.optimal = optimal
         except (AttributeError, KeyError, TypeError):
             optimal = None
 

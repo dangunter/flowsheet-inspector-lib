@@ -81,9 +81,9 @@ class Progress(Action):
 
         steps: list[StepInfo]
 
-    def __init__(self, runner, reportdb: ReportDB | None = None, **kwargs):
+    def __init__(self, runner, **kwargs):
         super().__init__(runner, **kwargs)
-        self._reportdb = reportdb
+        self._reportdb = getattr(runner, "_reportdb", None)
         if self._reportdb is not None:
             self.run_id = self._reportdb.get_last_run_id()
         else:
@@ -103,7 +103,7 @@ class Progress(Action):
         """Record progress after a step is run."""
         t = time.time()
         info = self._step_info[-1]
-        info.solve_ok = True if is_solve_step(step_name) else None
+        info.solve_ok = self._calculate_solve_ok(step_name)
         info.status = Status.COMPLETED
         info.dur = t - info.start
         # add record to reportdb if available
@@ -117,6 +117,20 @@ class Progress(Action):
                 duration=info.dur,
                 solve_ok=info.solve_ok,
             )
+
+    def _calculate_solve_ok(self, step_name: str) -> bool | None:
+        """Calculate whether solve was ok.
+
+        Solve step? -> None (n/a)
+
+        Otherwise:
+         - check self._runner.optimal, set by the `GetSolverResults` action
+         - if False, the solve was not optimal -> False
+         - else, either it was optimal (True) or we can't tell -> True
+        """
+        if not is_solve_step(step_name):
+            return None
+        return not (self._runner.optimal is False)
 
     def step_failed(self, step_name: str, error: Exception):
         """Record progress after a step fails."""
@@ -145,7 +159,7 @@ class Progress(Action):
                 solve_ok=info.solve_ok,
             )
 
-    def _format_tb(self, e: Exception) -> str:
+    def _format_tb(self, e: Exception) -> list[str]:
         tb_list = traceback.format_tb(e.__traceback__)
         return tb_list
 

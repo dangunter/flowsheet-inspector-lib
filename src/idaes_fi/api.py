@@ -64,6 +64,7 @@ class _FlowsheetRunnerInterface(ABC):
         self._results = []
         self._report = None
         self._actions = []
+        self._optimal = None
 
     @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
@@ -140,6 +141,14 @@ class _FlowsheetRunnerInterface(ABC):
         return self._actions
 
     actions = property(_get_actions, None)
+
+    def _get_optimal(self) -> bool | None:
+        return self._optimal
+
+    def _set_optimal(self, value: bool | None):
+        self._optimal = value
+
+    optimal = property(_get_optimal, _set_optimal)
 
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
