@@ -18,7 +18,13 @@ from idaes_fi.reportdb_migrate import MigrationStrategy, MigrationError
 
 __author__ = "Dan Gunter (LBNL)"
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig()
+_h = logging.StreamHandler()
+logging.getLogger("idaes_fi.commands").addHandler(_h)
+_h.setFormatter(
+    logging.Formatter("[%(levelname)s] (%(asctime)s) %(name)s - %(message)s")
+)
+_log = logging.getLogger("idaes_fi.commands")
 
 # Package name, for help/descriptions
 PKG = "IDAES Flowsheet Inspector"
@@ -87,7 +93,7 @@ def _db_info_cli(args) -> bool:
 # ----
 
 
-def _load_flowsheet(modulename: str | None, filename: str | None, varname: str | None):
+def _get_fs_runners(modulename: str | None, filename: str | None):
     if modulename is None and filename is None:
         raise ValueError("Cannot load flowsheet: both module and file are empty")
     try:
@@ -95,19 +101,7 @@ def _load_flowsheet(modulename: str | None, filename: str | None, varname: str |
     except ImportError as err:
         which = modulename if modulename else filename
         raise ValueError(f"Could not import flowsheet '{which}': {err}")
-    runners = get_module_flowsheet_runners(mod)
-    modname = mod.__name__
-    if not runners:
-        raise KeyError(f"No flowsheets found in module {modname}")
-    if varname:
-        if not varname in runners:
-            raise KeyError(f"Flowsheet {varname} not found in module {modname}")
-        return runners[varname]
-    elif len(runners) > 1:
-        raise KeyError(
-            f"Multiple flowsheets in module {modname} but no flowsheet name given"
-        )
-    return list(runners.values())[0]
+    return get_module_flowsheet_runners(mod)
 
 
 def flowsheet_run(
@@ -117,7 +111,14 @@ def flowsheet_run(
     last_step: Optional[str] = None,
     level: Optional[int] = None,
 ):
-    flowsheet = _load_flowsheet(module, file, name)
+    flowsheets = _get_fs_runners(module, file, name)
+    if name is not None:
+        if name not in flowsheets:
+            raise ValueError(f"Flowsheet '{name}' not found")
+        flowsheet = flowsheets[name]
+    else:
+        keys = sorted(flowsheets.keys())
+        flowsheet = flowsheets[keys[0]]
     if last_step is not None:
         flowsheet.last_step = last_step
     if level is not None:
@@ -146,25 +147,29 @@ def _flowsheet_run_cli(args):
 def flowsheet_steps(
     module: Optional[str] = None,
     file: Optional[str] = None,
-    name: Optional[str] = None,
 ):
-    flowsheet = _load_flowsheet(module, file, name)
-    return flowsheet.steps
+    flowsheets = _get_fs_runners(module, file)
+    return {k: v.steps for k, v in flowsheets.items()}
 
 
 def _flowsheet_steps_cli(args):
+    _log.debug(
+        "Fetching flowsheet steps for module=%s, file=%s", args.module, args.file
+    )
     if args.module is None and args.file is None:
         print("Must set --module or --file")
         return False
     try:
-        steps = flowsheet_steps(module=args.module, file=args.file, name=args.name)
+        steps = flowsheet_steps(module=args.module, file=args.file)
     except Exception as err:
-        print(f"Could not load flowsheet to extract steps.\nReason: {err}")
+        print(f"Could not load flowsheets to extract steps.\nReason: {err}")
         return False
     if args.json:
         json.dump(steps, sys.stdout)
     else:
-        print(", ".join(steps))
+        for fs_name, fs_steps in steps.items():
+            print(f"{fs_name}: {', '.join(fs_steps)}")
+    _log.debug("Fetched flowsheet steps: %s", steps)
     return True
 
 
@@ -221,6 +226,9 @@ def main(*cmdline):
         action="store_true",
         help="Format output as JSON (default=plain text)",
     )
+    p.add_argument(
+        "-v", "--verbose", help="Increase output verbosity", action="count", default=0
+    )
 
     # add 'db' subcommand and sub-subcommands
     dbp = p_subp.add_parser("db")
@@ -251,23 +259,31 @@ def main(*cmdline):
     cmd = run_subp.add_parser("run", help=desc, description=desc)
     cmd.add_argument("--file", "-f", help="Flowsheet Python file")
     cmd.add_argument("--module", "-m", help="Flowsheet Python module name")
-    cmd.add_argument("--name", "-n", help="Flowsheet variable name (if >1)")
+    cmd.add_argument("--name", "-n", help="Flowsheet variable name")
     cmd.add_argument(
         "--last-step", "-l", help="Flowsheet step at which to stop the run"
     )
     cmd.set_defaults(func=_flowsheet_run_cli)
     # get steps for flowsheet
-    desc = "Get defined steps for a flowsheet"
+    desc = "Get defined steps for flowsheet(s)"
     cmd = run_subp.add_parser("steps", help=desc, description=desc)
     cmd.add_argument("--file", "-f", help="Flowsheet Python file")
     cmd.add_argument("--module", "-m", help="Flowsheet Python module name")
-    cmd.add_argument("--name", "-n", help="Flowsheet variable name (if >1)")
     cmd.set_defaults(func=_flowsheet_steps_cli)
 
     if cmdline:
         args = p.parse_args(*cmdline)
     else:
         args = p.parse_args()
+
+    # handle verbosity
+    if hasattr(args, "verbose"):
+        if args.verbose == 1:
+            logging.getLogger().setLevel(logging.INFO)
+        elif args.verbose >= 2:
+            logging.getLogger().setLevel(logging.DEBUG)
+        else:
+            logging.getLogger().setLevel(logging.WARNING)
 
     # e.g. "ifi flowsheet" without a further subcommand
     if not hasattr(args, "func"):

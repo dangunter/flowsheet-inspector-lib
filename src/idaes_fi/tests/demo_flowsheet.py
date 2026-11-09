@@ -26,18 +26,7 @@ and flash unit.
 import time
 
 # third-party imports
-from pyomo.environ import ConcreteModel, TransformationFactory
-from pyomo.network import Arc
-from idaes.core import FlowsheetBlock
-from idaes.core.solvers import get_solver
-import idaes.core.util.scaling as iscale
-from idaes.core.util.initialization import propagate_state
-from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
-    BTXParameterBlock,
-)
-from idaes.models.unit_models import Mixer, Heater, Flash
-import idaes.logger as idaeslog
-
+# put all under main
 # local imports
 from idaes_fi import FlowsheetRunner, Steps
 
@@ -56,6 +45,8 @@ crawler = FlowsheetRunner(steps=_steps, report_db=False)
 
 def build_flowsheet():
     """Build demo flowsheet"""
+    # defer here because these take >2 seconds to import
+
     m = ConcreteModel()
 
     m.fs = FlowsheetBlock(dynamic=False)
@@ -519,6 +510,18 @@ def display_results(m):
 
 
 def main(runner):
+    from pyomo.environ import ConcreteModel, TransformationFactory
+    from pyomo.network import Arc
+    from idaes.core import FlowsheetBlock
+    from idaes.core.solvers import get_solver
+    import idaes.core.util.scaling as iscale
+    from idaes.core.util.initialization import propagate_state
+    from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
+        BTXParameterBlock,
+    )
+    import idaes.logger as idaeslog
+    from idaes.models.unit_models import Mixer, Heater, Flash
+
     runner.step_begin(Steps.build)
     runner.model = m = build_flowsheet()
 
@@ -556,6 +559,18 @@ def twiddle_thumbs(sec: int):
 
 
 def slow_main(runner):
+    from pyomo.environ import ConcreteModel, TransformationFactory
+    from pyomo.network import Arc
+    from idaes.core import FlowsheetBlock
+    from idaes.core.solvers import get_solver
+    import idaes.core.util.scaling as iscale
+    from idaes.core.util.initialization import propagate_state
+    from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
+        BTXParameterBlock,
+    )
+    import idaes.logger as idaeslog
+    from idaes.models.unit_models import Mixer, Heater, Flash
+
     runner.step_begin(Steps.build)
     runner.model = m = build_flowsheet()
 
