@@ -150,6 +150,11 @@ class _FlowsheetRunnerInterface(ABC):
 
     optimal = property(_get_optimal, _set_optimal)
 
+    def _get_report_db(self) -> ReportDB | None:
+        return self._report_db
+
+    report_db = property(_get_report_db, None)
+
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
     """For using your flowsheet with the Flowsheet Inspector."""

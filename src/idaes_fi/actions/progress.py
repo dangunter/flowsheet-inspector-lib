@@ -83,9 +83,9 @@ class Progress(Action):
 
     def __init__(self, runner, **kwargs):
         super().__init__(runner, **kwargs)
-        self._reportdb = getattr(runner, "_reportdb", None)
-        if self._reportdb is not None:
-            self.run_id = self._reportdb.get_last_run_id()
+        self._report_db = runner.report_db
+        if self._report_db is not None:
+            self.run_id = self._report_db.get_last_run_id()
         else:
             self.log.warning("Progress action initialized without a report database.")
 
@@ -104,15 +104,14 @@ class Progress(Action):
         t = time.time()
         info = self._step_info[-1]
         info.solve_ok = self._calculate_solve_ok(step_name)
-        info.status = Status.COMPLETED
         info.dur = t - info.start
         # add record to reportdb if available
-        if self._reportdb is not None:
-            self._reportdb.add_status(
+        if self._report_db is not None:
+            self._report_db.add_status(
                 run_id=self.run_id,
                 step_num=info.number,
                 step_name=info.name,
-                status=info.status,
+                errcode=0,
                 start=info.start,
                 duration=info.dur,
                 solve_ok=info.solve_ok,
@@ -142,18 +141,17 @@ class Progress(Action):
         t = time.time()
         info = self._step_info[-1]
         info.solve_ok = False if is_solve_step(step_name) else None
-        info.status = Status.FAILED
         info.dur = t - info.start
         info.err = str(error)
         info.tb = self._format_tb(error)
         info.env = os.environ.copy()
         # add record to reportdb if available
-        if self._reportdb is not None:
-            self._reportdb.add_status(
+        if self._report_db is not None:
+            self._report_db.add_status(
                 run_id=self.run_id,
                 step_num=info.number,
                 step_name=info.name,
-                status=info.status,
+                errcode=1,
                 start=info.start,
                 duration=info.dur,
                 solve_ok=info.solve_ok,

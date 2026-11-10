@@ -111,7 +111,7 @@ def flowsheet_run(
     last_step: Optional[str] = None,
     level: Optional[int] = None,
 ):
-    flowsheets = _get_fs_runners(module, file, name)
+    flowsheets = _get_fs_runners(module, file)
     if name is not None:
         if name not in flowsheets:
             raise ValueError(f"Flowsheet '{name}' not found")

@@ -26,7 +26,9 @@ and flash unit.
 import time
 
 # third-party imports
-# put all under main
+import idaes.logger as idaeslog
+from idaes.core.solvers import get_solver
+
 # local imports
 from idaes_fi import FlowsheetRunner, Steps
 
@@ -37,14 +39,22 @@ _steps = (
     Steps.set_solver,
     Steps.solve_optimization,
 )
-runner = FlowsheetRunner(steps=_steps, report_db=False)
+runner = FlowsheetRunner(steps=_steps)
 
 # for testing purposes, create another runner we never use
-crawler = FlowsheetRunner(steps=_steps, report_db=False)
+crawler = FlowsheetRunner(steps=_steps)
 
 
 def build_flowsheet():
     """Build demo flowsheet"""
+    from pyomo.environ import ConcreteModel, TransformationFactory
+    from pyomo.network import Arc
+    from idaes.core import FlowsheetBlock
+    from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
+        BTXParameterBlock,
+    )
+    from idaes.models.unit_models import Mixer, Heater, Flash
+
     # defer here because these take >2 seconds to import
 
     m = ConcreteModel()
@@ -69,6 +79,7 @@ def build_flowsheet():
 
 def set_scaling(m):
     """Set scaling for demo flowsheet"""
+    import idaes.core.util.scaling as iscale
 
     iscale.set_scaling_factor(m.fs.M01.inlet_1_state[0].flow_mol_phase, 1e6)
     iscale.set_scaling_factor(m.fs.M01.inlet_1_state[0].flow_mol_phase["Liq"], 1e6)
@@ -487,6 +498,8 @@ def set_dof(m):
 
 def initialize_flowsheet(m):
     """Initialize demo flowsheet"""
+    from idaes.core.util.initialization import propagate_state
+
     m.fs.M01.initialize(outlvl=idaeslog.WARNING)
 
     propagate_state(m.fs.s01)
@@ -510,18 +523,6 @@ def display_results(m):
 
 
 def main(runner):
-    from pyomo.environ import ConcreteModel, TransformationFactory
-    from pyomo.network import Arc
-    from idaes.core import FlowsheetBlock
-    from idaes.core.solvers import get_solver
-    import idaes.core.util.scaling as iscale
-    from idaes.core.util.initialization import propagate_state
-    from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
-        BTXParameterBlock,
-    )
-    import idaes.logger as idaeslog
-    from idaes.models.unit_models import Mixer, Heater, Flash
-
     runner.step_begin(Steps.build)
     runner.model = m = build_flowsheet()
 
@@ -559,18 +560,6 @@ def twiddle_thumbs(sec: int):
 
 
 def slow_main(runner):
-    from pyomo.environ import ConcreteModel, TransformationFactory
-    from pyomo.network import Arc
-    from idaes.core import FlowsheetBlock
-    from idaes.core.solvers import get_solver
-    import idaes.core.util.scaling as iscale
-    from idaes.core.util.initialization import propagate_state
-    from idaes.models.properties.activity_coeff_models.BTX_activity_coeff_VLE import (
-        BTXParameterBlock,
-    )
-    import idaes.logger as idaeslog
-    from idaes.models.unit_models import Mixer, Heater, Flash
-
     runner.step_begin(Steps.build)
     runner.model = m = build_flowsheet()
 
