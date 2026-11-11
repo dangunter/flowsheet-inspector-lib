@@ -42,6 +42,8 @@ from ..actions import (
 )
 from ..gitutil import git_head_hash
 from . import demo_flowsheet
+from .shared import flowsheet_var
+
 
 
 @pytest.fixture
@@ -110,7 +112,7 @@ def test_unit_dof_action_base(tmp_runner):
     def check_run(step_dof, model_dof):
         assert model_dof >= 0
 
-    rn.actions.append(UnitDofChecker(rn, "fs", [Steps.build], check_step, check_run))
+    rn.actions.append(UnitDofChecker(rn, flowsheet_var, [Steps.build], check_step, check_run))
 
     rn.run_flowsheet()
 

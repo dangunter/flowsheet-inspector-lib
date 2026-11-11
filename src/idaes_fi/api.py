@@ -67,6 +67,16 @@ class _FlowsheetRunnerInterface(ABC):
         self._optimal = None
 
     @abstractmethod
+    def add_action(self, clazz, *args) -> bool:
+        """Add a new action class plus optional args.
+
+        Return:
+            True if this was a new action, False if it replaced an existing action
+            of the same class.
+        """
+        return False
+
+    @abstractmethod
     def run_flowsheet(self, *args, **kwargs) -> object:
         pass
 
@@ -137,11 +147,6 @@ class _FlowsheetRunnerInterface(ABC):
 
     report = property(_get_report, _set_report)
 
-    def _get_actions(self) -> list[Action]:
-        return self._actions
-
-    actions = property(_get_actions, None)
-
     def _get_optimal(self) -> bool | None:
         return self._optimal
 
@@ -201,6 +206,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
                 "a filename, or a ReportDB instance"
             )
         self._fs_name = flowsheet_block
+        self._added_actions = []
 
         caller = inspect.currentframe().f_back
         self._caller_file = caller.f_globals.get("__file__") if caller else None
@@ -218,6 +224,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._flowsheet_ended = False
         self._current_step = None
         self._model = None
+        # reset all default actions
         self._actions = self._default_actions()
 
     def _init_log(self):
@@ -293,7 +300,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             Progress,
         )
 
-        dof_steps = [Steps.build, Steps.solve_initial, Steps.solve_optimization]
+        # dof_steps = [Steps.build, Steps.solve_initial, Steps.solve_optimization]
 
         return [
             clazz(self, *args)
@@ -310,7 +317,18 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
                 (GitHash, (self._caller_file,)),
                 (Progress, ()),
             )
-        ]
+        ] + [clazz(self, *args) for clazz, args in self._added_actions]
+
+    def add_action(self, clazz, *args):
+        new_action = True
+        for i, (c, a) in enumerate(self._added_actions):
+            if c is clazz:
+                self._added_actions[i] = (clazz, args)
+                new_action = False
+                break
+        if new_action:
+            self._added_actions.append((clazz, args))
+        return new_action
 
     def run_flowsheet(self, *args, **kwargs) -> object:
         """Run the flowsheet.
@@ -504,6 +522,9 @@ class NullFlowsheetRunner(_FlowsheetRunnerInterface):
 
     def __init__(self, *args, **kwargs):
         super().__init__([""])
+
+    def add_action(self, clazz, *args) -> bool:
+        return False
 
     def run_flowsheet(self, *args, **kwargs) -> object:
         if self._main:
