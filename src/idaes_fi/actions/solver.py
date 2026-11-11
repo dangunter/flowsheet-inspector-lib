@@ -274,7 +274,7 @@ class Diagnostics(SolverActionBase):
         if root is None or len(root) == 0:
             self._model_root_split = []
         else:
-            self._model_root_split = self._root.split(".")
+            self._model_root_split = root.split(".")
         self._had_solve = False
         self.diagnostics = {}
 

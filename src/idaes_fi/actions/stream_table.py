@@ -71,17 +71,17 @@ class StreamTable(Action):
         cls, data: list[list[tuple[float | None, str | None]]]
     ) -> list[list[tuple[float | None, str | None]]]:
         """Modify data to conform to expected format."""
-        return [
-            [
-                (
-                    (None, None)
-                    if val is None or isinstance(val, str)
-                    else (float(val), str(status))
-                )
-                for (val, status) in row[1:]
-            ]
-            for row in data
-        ]
+        result = []
+        for row in data:
+            print(f"@@ convert_data: Processing row: {row}")
+            new_row = []
+            for val, status in row[1:]:
+                if val is None or isinstance(val, str):
+                    new_row.append((None, None))
+                else:
+                    new_row.append((float(val), str(status)))
+            result.append(new_row)
+        return result
 
     def report(self) -> Report:
         if self._stream_table:

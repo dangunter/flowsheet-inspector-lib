@@ -145,6 +145,13 @@ def _flowsheet_run_cli(args):
         )
     except Exception as err:
         print(f"Could not run flowsheet: {err}")
+        if args.level >= logging.INFO:
+            import traceback
+
+            print("Traceback:")
+            traceback.print_exc()
+        else:
+            print("Increase verbosity to see the full traceback")
         return False
     return True
 
