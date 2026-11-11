@@ -18,7 +18,7 @@ from idaes_fi.reportdb_migrate import MigrationStrategy, MigrationError
 
 __author__ = "Dan Gunter (LBNL)"
 
-logging.basicConfig()
+# logging.basicConfig()
 _h = logging.StreamHandler()
 logging.getLogger("idaes_fi.commands").addHandler(_h)
 _h.setFormatter(

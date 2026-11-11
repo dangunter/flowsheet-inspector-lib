@@ -73,9 +73,13 @@ class StreamTable(Action):
         """Modify data to conform to expected format."""
         result = []
         for row in data:
-            print(f"@@ convert_data: Processing row: {row}")
             new_row = []
-            for val, status in row[1:]:
+            for item in row[1:]:
+                # ignore if not a (number, variable-status) pair
+                if not isinstance(item, tuple) or len(item) != 2:
+                    new_row.append((None, None))
+                    continue
+                val, status = item
                 if val is None or isinstance(val, str):
                     new_row.append((None, None))
                 else:
