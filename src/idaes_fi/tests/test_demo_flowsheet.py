@@ -27,18 +27,18 @@ from pathlib import Path
 import pytest
 
 # package
-from .demo_flowsheet import runner
+from .demo_flowsheet import f1_runner
 
 
 @pytest.mark.unit
 def test_has_runner():
-    assert runner is not None
-    assert runner.steps
+    assert f1_runner is not None
+    assert f1_runner.steps
 
 
 @pytest.mark.integration
 def test_run(tmp_path):
 
     dbpath = tmp_path / "test_fs_run_steps.db"
-    runner.report_db_file = dbpath
-    runner.run_flowsheet()
+    f1_runner.report_db_file = dbpath
+    f1_runner.run_flowsheet()

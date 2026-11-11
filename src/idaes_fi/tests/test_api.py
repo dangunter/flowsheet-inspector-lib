@@ -28,6 +28,7 @@ import pytest
 from idaes_fi import api
 from idaes.logger import set_log_tags
 from idaes_fi.tests import demo_flowsheet
+from .shared import flowsheet_var
 
 __author__ = "Dan Gunter (LBNL)"
 
@@ -196,7 +197,7 @@ def test_run_flowsheet_bad(tmpdb):
 def test_run_flowsheet_ok(tmpdb):
     model = api.run_flowsheet(
         module_name="idaes_fi.tests.demo_flowsheet",
-        flowsheet_name="runner",
+        flowsheet_name=flowsheet_var,
         dbpath=tmpdb,
     )
     assert model is not None

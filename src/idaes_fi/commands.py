@@ -110,6 +110,7 @@ def flowsheet_run(
     name: Optional[str] = None,
     last_step: Optional[str] = None,
     level: Optional[int] = None,
+    nodb: bool = False,
 ):
     flowsheets = _get_fs_runners(module, file)
     if name is not None:
@@ -123,6 +124,9 @@ def flowsheet_run(
         flowsheet.last_step = last_step
     if level is not None:
         flowsheet.log_level = level
+    if nodb:
+        _log.info("Not using report database")
+        flowsheet.report_db_off()
     flowsheet.run_flowsheet()
 
 
@@ -137,6 +141,7 @@ def _flowsheet_run_cli(args):
             name=args.name,
             level=args.level,
             last_step=args.last_step,
+            nodb=args.no_db,
         )
     except Exception as err:
         print(f"Could not run flowsheet: {err}")
@@ -262,6 +267,11 @@ def main(*cmdline):
     cmd.add_argument("--name", "-n", help="Flowsheet variable name")
     cmd.add_argument(
         "--last-step", "-l", help="Flowsheet step at which to stop the run"
+    )
+    cmd.add_argument(
+        "--no-db",
+        action="store_true",
+        help="Do not use the report database",
     )
     cmd.set_defaults(func=_flowsheet_run_cli)
     # get steps for flowsheet

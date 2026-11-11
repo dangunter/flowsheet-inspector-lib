@@ -34,12 +34,13 @@ from idaes_fi.tests import demo_flowsheet
 @pytest.fixture
 def runner():
     r = SimpleNamespace()
-    r._reportdb = SimpleNamespace()
-    r._reportdb.add_status = lambda *args, **kwargs: capture_add_status(
+    r.report_db = SimpleNamespace()
+    r.report_db.add_status = lambda *args, **kwargs: capture_add_status(
         r, *args, **kwargs
     )
+    r.report_db.get_last_run_id = lambda: 1
+    r._reportdb = r.report_db
     r._status_calls = []  # reset for each test
-    r._reportdb.get_last_run_id = lambda: 1
     return r
 
 
@@ -78,7 +79,7 @@ def test_progress_api(runner):
 @pytest.mark.integration
 def test_progress_flowsheet(tmp_path):
     db = tmp_path / "report.sqlite"
-    runner = demo_flowsheet.runner
+    runner = demo_flowsheet.f1_runner
     runner.report_db_file = db
     save_main = runner.main
     try:

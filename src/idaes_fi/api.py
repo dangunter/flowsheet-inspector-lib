@@ -155,6 +155,9 @@ class _FlowsheetRunnerInterface(ABC):
 
     report_db = property(_get_report_db, None)
 
+    def report_db_off(self):
+        self._report_db = None
+
 
 class FlowsheetRunner(_FlowsheetRunnerInterface):
     """For using your flowsheet with the Flowsheet Inspector."""

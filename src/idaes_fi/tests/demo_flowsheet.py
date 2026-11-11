@@ -39,10 +39,10 @@ _steps = (
     Steps.set_solver,
     Steps.solve_optimization,
 )
-runner = FlowsheetRunner(steps=_steps)
+f1_runner = FlowsheetRunner(steps=_steps)
 
 # for testing purposes, create another runner we never use
-crawler = FlowsheetRunner(steps=_steps)
+f2_runner = FlowsheetRunner(steps=_steps)
 
 
 def build_flowsheet():
@@ -589,8 +589,8 @@ def slow_main(runner):
     return m
 
 
-runner.main = main
-crawler.main = slow_main
+f1_runner.main = main
+f2_runner.main = slow_main
 
 
 def banner(title: str, width: int):
@@ -609,5 +609,5 @@ def banner(title: str, width: int):
 
 
 if __name__ == "__main__":
-    m = runner.run_flowsheet()
+    m = f1_runner.run_flowsheet()
     display_results(m)

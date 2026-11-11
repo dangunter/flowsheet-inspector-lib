@@ -20,6 +20,7 @@ Tests for the idaes_fi commands (.commands) module
 """
 
 from idaes_fi import commands
+from .shared import flowsheet_var
 import sys
 from tempfile import NamedTemporaryFile
 
@@ -65,13 +66,18 @@ def test_command_basic(command):
 )
 def test_command_flowsheet_run(log_level):
     log_args = ["--level", log_level] if log_level else []
-    for ok, demo_args in ((False, []), (True, ["--name", "runner"])):
-        result = run_command(
+    for ok, demo_args in (
+        (False, ["--name", "foo"]),
+        (True, ["--name", flowsheet_var]),
+    ):
+        cmd_args = (
             ["ifi", "flowsheet"]
             + log_args
-            + ["run", "--module", "idaes_fi.tests.demo_flowsheet"]
+            + ["run", "--no-db", "--module", "idaes_fi.tests.demo_flowsheet"]
             + demo_args
         )
+        print("Command: ", " ".join(cmd_args))
+        result = run_command(cmd_args)
         if ok:
             assert result == 0
         else:

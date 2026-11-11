@@ -13,7 +13,7 @@ _solver_name = "couenne"
 # Create a wrapped flowsheet #
 ##############################
 
-runner = FlowsheetRunner(
+f1_runner = FlowsheetRunner(
     steps=[
         Steps.build,
         Steps.set_operating_conditions,
@@ -52,7 +52,7 @@ def main(runner: FlowsheetRunner):
     return model
 
 
-runner.main = main  # don't forget this
+f1_runner.main = main  # don't forget this
 
 #########
 # Tests #
@@ -68,9 +68,9 @@ def test_solver_action(solver_name, tmp_path):
     global _solver_name
     _solver_name = solver_name
 
-    runner.report_db_file = tmp_path / "report.db"
-    runner.run_flowsheet()
-    actions = runner.report["actions"]
+    f1_runner.report_db_file = tmp_path / "report.db"
+    f1_runner.run_flowsheet()
+    actions = f1_runner.report["actions"]
     progress_action_name = "Progress"
     solver_action_name = "CaptureSolverOutput"
     for step in actions[progress_action_name]["steps"]:
