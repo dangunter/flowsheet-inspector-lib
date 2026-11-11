@@ -15,28 +15,33 @@ Global options:
 
 ### Subcommands
 
-* **ifi db migrate**: Migrate to latest database version
+* **ifi db migrate**: usage: IDAES Flowsheet Inspector db migrate [-h] [--file FILE]
     ```
+    Migrate to latest database version
     --file, -f FILE  Database file (instead of default)
     ```
-* **ifi db info**: Show current database information
+* **ifi db info**: usage: IDAES Flowsheet Inspector db info [-h] [--file FILE]
     ```
+    Show current database information
     --file, -f FILE  Database file (instead of default)
     ```
-* **ifi flowsheet run**: Run flowsheet
+* **ifi flowsheet run**: usage: IDAES Flowsheet Inspector flowsheet run [-h] [--file FILE]
     ```
+    Run flowsheet
     --file, -f FILE       Flowsheet Python file
     --module, -m MODULE   Flowsheet Python module name
-    --name, -n NAME       Flowsheet variable name (if >1)
+    --name, -n NAME       Flowsheet variable name
     --last-step, -l LAST_STEP
     Flowsheet step at which to stop the run
+    --no-db               Do not use the report database
     ```
-* **ifi flowsheet steps**: Get defined steps for a flowsheet
+* **ifi flowsheet steps**: usage: IDAES Flowsheet Inspector flowsheet steps [-h] [--file FILE]
     ```
+    Get defined steps for flowsheet(s)
     --file, -f FILE      Flowsheet Python file
     --module, -m MODULE  Flowsheet Python module name
-    --name, -n NAME      Flowsheet variable name (if >1)
     ```
+    
 ## Programmatic usage
 
 Each sub-command available through the `ifi` command can also be found in the `idaes_fi.commands` module, where the name of the function is simply the subcommand and sub-subcommand name separated by an underscore.

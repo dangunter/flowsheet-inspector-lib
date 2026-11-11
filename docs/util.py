@@ -13,7 +13,7 @@ def get_help(cmd=[], hmap=None):
     # run cmd with --help option and get output
     args = [CMD] + cmd + ["--help"]
     output = check_output(args)
-    lines = [s.strip() for s in str(output).split("\\n")]
+    lines = [s.strip().decode("utf-8") for s in output.splitlines()]
     lines = [s for s in lines if len(s) > 1 and not s.startswith("-h")]
     if not lines:
         print
@@ -45,7 +45,7 @@ def get_help(cmd=[], hmap=None):
             # extract description
             elif line and not re.match(r"^(b|\[)", line):
                 help_lines.append(line)
-        if help_lines:
+        if help_lines and cmd:
             # add lines into hmap 'tree'
             # (and stop recursion)
             cur = hmap
