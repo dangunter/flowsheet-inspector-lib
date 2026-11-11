@@ -35,7 +35,7 @@ class MermaidDiagram(Action):
 
         diagram: list[str]  #: each item is one line
 
-    def __init__(self, runner, **kwargs):
+    def __init__(self, runner, root, **kwargs):
         """Initialize Mermaid diagram generation settings.
 
         Args:
@@ -44,7 +44,10 @@ class MermaidDiagram(Action):
         """
         super().__init__(runner, **kwargs)
         self._images = False  # TODO: make this configurable
-        self._model_root_split = []
+        if root is None or len(root) == 0:
+            self._model_root_split = []
+        else:
+            self.set_model_root(root)
         self.diagram = None
 
     def show_unit_images(self, value: bool):

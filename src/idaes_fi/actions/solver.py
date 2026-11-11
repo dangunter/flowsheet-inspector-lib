@@ -269,8 +269,12 @@ class Diagnostics(SolverActionBase):
         structural_issues: StructuralIssuesData | None = None
         numerical_issues: NumericalIssuesData | None = None
 
-    def __init__(self, runner, **kwargs):
+    def __init__(self, runner, root, **kwargs):
         super().__init__(runner, **kwargs)
+        if root is None or len(root) == 0:
+            self._model_root_split = []
+        else:
+            self._model_root_split = self._root.split(".")
         self._had_solve = False
         self.diagnostics = {}
 
@@ -282,6 +286,9 @@ class Diagnostics(SolverActionBase):
         """Get model diagnostics after the run."""
         m = self._runner.model
         if m is not None:
+            # get submodel specified by root
+            for a in self._model_root_split:
+                m = getattr(m, a)
             try:
                 dd = DiagnosticsData(model=m)
                 if self._had_solve:

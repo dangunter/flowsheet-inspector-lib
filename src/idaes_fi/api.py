@@ -299,9 +299,9 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             clazz(self, *args)
             for clazz, args in (
                 (CaptureSolverOutput, ()),
-                (Diagnostics, ()),
-                (UnitDofChecker, (self._fs_name, dof_steps)),
-                (MermaidDiagram, ()),
+                (Diagnostics, (self._fs_name,)),
+                # (UnitDofChecker, (self._fs_name, dof_steps)),
+                (MermaidDiagram, (self._fs_name,)),
                 (UnitModelReport, ()),
                 (ModelVariables, ()),
                 (GetSolverResults, ()),
