@@ -45,7 +45,6 @@ from . import demo_flowsheet
 from .shared import flowsheet_var
 
 
-
 @pytest.fixture
 def tmp_runner(tmp_path):
     runner = FlowsheetRunner(
@@ -112,10 +111,11 @@ def test_unit_dof_action_base(tmp_runner):
     def check_run(step_dof, model_dof):
         assert model_dof >= 0
 
-    rn.actions.append(UnitDofChecker(rn, flowsheet_var, [Steps.build], check_step, check_run))
+    rn.add_action(UnitDofChecker, "fs", [Steps.build], check_step, check_run)
 
     rn.run_flowsheet()
 
+    pprint.pprint(rn.report["actions"].keys())
     pprint.pprint(rn.report["actions"]["UnitDofChecker"])
 
 
@@ -125,7 +125,7 @@ def test_mermaid_report(tmp_runner):
     rn.run_flowsheet()
 
     action = None
-    for a in rn.actions:
+    for a in rn._actions:
         if isinstance(a, MermaidDiagram):
             action = a
             break
