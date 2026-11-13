@@ -351,11 +351,11 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         if self._report_db:
             self._report_id = self._report_db.add_report({})
             # let all the actions know the new report id
-            for action in self.actions:
+            for action in self._actions:
                 action.run_id = self._report_id
 
         # before-run actions
-        for action in self.actions:
+        for action in self._actions:
             action.before_run()
 
         try:
@@ -385,7 +385,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._log("begin")
 
         # run actions
-        for action in self.actions:
+        for action in self._actions:
             action.before_step(self._current_step)
 
     def step_end(self):
@@ -396,7 +396,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             raise ValueError("step_end called without matching step_begin")
 
         # run actions
-        for action in self.actions:
+        for action in self._actions:
             action.after_step(self._current_step)
 
         # finalize
@@ -412,7 +412,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         self._current_step = None
 
     def _step_failed(self, name, err):
-        for action in self.actions:
+        for action in self._actions:
             action.step_failed(name, err)
 
     def _flowsheet_end(self, error=None):
@@ -426,7 +426,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
             self.step_end()
 
         # run actions
-        for action in self.actions:
+        for action in self._actions:
             action.after_run()
 
         report = self._create_report()
@@ -456,7 +456,7 @@ class FlowsheetRunner(_FlowsheetRunnerInterface):
         """
         # create a mapping of actions to report dicts
         action_reports = {}
-        for action in self.actions:
+        for action in self._actions:
             rpt = action.report()
             rpt_dict = rpt.model_dump() if isinstance(rpt, BaseModel) else rpt
             name = action.name
